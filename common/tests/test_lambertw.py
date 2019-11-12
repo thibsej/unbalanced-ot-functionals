@@ -1,10 +1,12 @@
-import unittest
+import pytest
 
+import torch
+import numpy as np
+import scipy.special.lambertw as lambertw
+from common.torch_lambertw import log_lambertw
 
-class MyTestCase(unittest.TestCase):
-    def test_something(self):
-        self.assertEqual(True, False)
-
-
-if __name__ == '__main__':
-    unittest.main()
+def test_log_lambertw():
+    input = np.array([-500, -100, -5, -2, 0, 1, 5, 500])
+    control = np.real(lambertw(input))
+    output = log_lambertw(torch.from_numpy(input))
+    assert torch.allclose(output, torch.from_numpy(control), atol=1e-7)
