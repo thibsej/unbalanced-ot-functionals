@@ -192,7 +192,8 @@ class TotalVariation(Entropy):
 
     def aprox(self):
         def aprox(x):
-            torch.min(torch.max(torch.Tensor([- self.reach]), x), torch.Tensor([self.reach]))
+            torch.min(torch.max(-self.reach * torch.ones_like(x), x), self.reach * torch.ones_like(x))
+            return x
         return aprox
 
     def init_potential(self):
@@ -239,7 +240,8 @@ class PowerEntropy(Entropy):
 
     def aprox(self):
         def aprox(x):
-            delta = -(x / (self.blur * (1-self.power))) - (self.reach / self.blur) + (self.reach / self.blur).log()
+            delta = -(x / (self.blur * (1-self.power))) - (self.reach / self.blur) + \
+                    torch.Tensor([self.reach / self.blur]).log()
             return (1-self.power) * (self.reach- self.blur * log_lambertw(delta))
         return aprox
 

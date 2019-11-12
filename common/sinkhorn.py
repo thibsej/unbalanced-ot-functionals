@@ -50,7 +50,7 @@ def sinkhorn_sym(a_i, x_i, p, entropy, y_j=None, nits=100, tol=1e-3, assume_conv
     if not assume_convergence:
         S_x = sym_softmin(a_i, x_i.detach(), x_i, p)
         if y_j is not None:
-            S2_x, _ = sym_softmin(a_i, x_i, y_j, p)
+            S2_x = sym_softmin(a_i, x_i, y_j, p)
             f_x, f_xy = -aprox( - S_x(f_i, blur) ), -aprox( - S2_x(f_i, blur) )
         else:
             f_x = -aprox( - S_x(f_i, blur) )
