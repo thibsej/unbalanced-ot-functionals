@@ -2,6 +2,7 @@ import torch
 from .entropy import Entropy
 from .utils import scal, dist_matrix, convolution, softmin, sym_softmin
 
+
 def sinkhorn_asym(a_i, x_i, b_j, y_j, p, entropy, nits=100, tol=1e-3, assume_convergence=False):
     if type(nits) in [list, tuple]: nits = nits[0]
     torch.set_grad_enabled(not assume_convergence)

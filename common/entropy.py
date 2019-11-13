@@ -42,6 +42,30 @@ class Entropy(object):
             return (f - g).abs().max()
         return err
 
+    def output_regularized(self):
+        """Outputs the cost of the regularized OT"""
+        def output_cost(a, x, b, y, p, f, g):
+            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+            output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
+            return scal(a, output_pot(f)) + scal(b, output_pot(g)) + self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]
+        return output_cost
+
+    def output_sinkhorn(self):
+        """Outputs the cost of the Sinkhorn divergence"""
+        def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+            output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
+            return scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+        return output_cost
+
+    def output_hausdorff(self):
+        """Outputs the cost of the Hausdorff divergence"""
+        def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+            output_pot = lambda x: phis(-x) + self.blur * partial_phis(-x)
+            return scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+        return output_cost
+
 
 class KullbackLeibler(Entropy):
 
@@ -125,6 +149,21 @@ class Balanced(Entropy):
             return (torch.max((f - g), dim=1)[0] - torch.min((f - g), dim=1)[0]).max()
         return err
 
+    def output_regularized(self):
+        def output_cost(a, x, b, y, p, f, g):
+            return scal(a, f) + scal(b, g)
+        return output_cost
+
+    def output_sinkhorn(self):
+        def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+            return scal(a, f_xy - f_xx) + scal(b, g_xy - g_yy)
+        return output_cost
+
+    def output_hausdorff(self):
+        def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+            return scal(a, f_xx - f_xy) + scal(b, g_yy - g_xy)
+        return output_cost
+
 
 class Range(Entropy):
 
@@ -164,6 +203,27 @@ class Range(Entropy):
             f, g = torch.zeros_like(a), torch.zeros_like(b)
             return f, g
         return init_pot
+
+    def output_regularized(self):
+        def output_cost(a, x, b, y, p, f, g):
+            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+            output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
+            return scal(a, output_pot(f)) + scal(b, output_pot(g)) + self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]
+        return output_cost
+
+    def output_sinkhorn(self):
+        def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+            output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
+            return scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+        return output_cost
+
+    def output_hausdorff(self):
+        def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+            output_pot = lambda x: phis(-x) + self.blur * partial_phis(-x)
+            return scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+        return output_cost
 
 
 
