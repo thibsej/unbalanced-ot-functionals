@@ -115,8 +115,8 @@ class Balanced(Entropy):
         def init_pot(a,x,b,y,p):
             f, g = convolution(a, x, b, y, p)
             scal_prod = scal(b, g)
-            f = f - scal_prod[:, None]
-            g = g - scal_prod[:, None]
+            f = f - 0.5 * scal_prod[:, None]
+            g = g - 0.5 * scal_prod[:, None]
             return f, g
         return init_pot
 
@@ -198,10 +198,20 @@ class TotalVariation(Entropy):
 
     def init_potential(self):
         def init_pot(a,x,b,y,p):
-            f = - self.reach * b.sum(dim=1).log().sign()[:, None]
-            g = - self.reach * a.sum(dim=1).log().sign()[:, None]
-            return f, g
+            f, g = convolution(a, x, b, y, p)
+            aprox = self.aprox()
+            scal_prod = scal(b, g)
+            f = f - 0.5 * scal_prod[:, None]
+            g = g - 0.5 * scal_prod[:, None]
+            return -aprox(-f), -aprox(-g)
         return init_pot
+
+    def error_sink(self):
+        def err(f, g):
+            err1 = (torch.max((f - g), dim=1)[0] - torch.min((f - g), dim=1)[0]).max()
+            err2 = (f-g).abs().max()
+            return torch.min(err1, err2)
+        return err
 
 
 class PowerEntropy(Entropy):

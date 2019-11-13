@@ -12,12 +12,11 @@ def scal(a, f):
 
 def dist_matrix(x_i, y_j, p):
     if p == 1:
-        return (x_i[:, None, :] - y_j[None, :, :]).norm(p=2, dim=3)
+        return (x_i[:, :, None, :] - y_j[:, None, :, :]).norm(p=2, dim=3)
     elif p == 2:
-        print(x_i.size(), y_j.size())
         return (x_i[:, :, None, :] - y_j[:, None, :, :]).norm(p=2, dim=3) ** 2
     else:
-        C_e = (x_i[:, None, :] - y_j[None, :, :]).norm(p=2, dim=3)
+        C_e = (x_i[:, :, None, :] - y_j[:, None, :, :]).norm(p=2, dim=3)
         return C_e ** (p)
 
 
@@ -57,10 +56,9 @@ def generate_measure(n_batch, n_sample, n_dim):
     :param n_dim: Dimension of the feature space
     :return: A (Nbatch, Nsample, Ndim) torch.Tensor
     """
-    # TODO : find another way than squeezing tensor to remove the last dimension.
-    m = torch.distributions.exponential.Exponential(torch.tensor([1.0]))
-    a = m.sample(torch.Size([n_batch, n_sample])).squeeze()
+    m = torch.distributions.exponential.Exponential(1.0)
+    a = m.sample(torch.Size([n_batch, n_sample]))
     a = a / a.sum(dim=1)[:,None]
-    m = torch.distributions.uniform.Uniform(torch.tensor([0.0]), torch.tensor([1.0]))
-    x = m.sample(torch.Size([n_batch, n_sample, n_dim])).squeeze()
+    m = torch.distributions.uniform.Uniform(0.0, 1.0)
+    x = m.sample(torch.Size([n_batch, n_sample, n_dim]))
     return a, x
