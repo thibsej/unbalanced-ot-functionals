@@ -47,6 +47,10 @@ class Entropy(object):
         def output_cost(a, x, b, y, p, f, g):
             phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
             output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
+            print(type(f))
+            print(f"Each output potential is equal to {f} // {g}")
+            print(f"Each output potential is equal to {output_pot(f)} // {output_pot(g)}")
+            print(f"Each term of the cost has values {scal(a, output_pot(f))} // {scal(b, output_pot(g))} // {self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]}")
             return scal(a, output_pot(f)) + scal(b, output_pot(g)) + self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]
         return output_cost
 
@@ -206,29 +210,36 @@ class Range(Entropy):
 
     def output_regularized(self):
         def output_cost(a, x, b, y, p, f, g):
-            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
-            output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
-            return scal(a, output_pot(f)) + scal(b, output_pot(g)) + self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]
+            phis = self.legendre_entropy()
+            output_pot = lambda x: - phis(-x)
+            cost = scal(a, output_pot(f)) + scal(b, output_pot(g))
+            C = dist_matrix(x, y, p)
+            expC = a[:,:,None] * b[:,None,:] * (1 - ((f[:,:,None] + g[:,None,:] - C) / self.blur).exp())
+            cost = cost + torch.sum(self.blur * expC, dim=(1,2))
+            print(type(f))
+            print(f"Each output potential is equal to {f} // {g}")
+            print(f"Each output potential is equal to {output_pot(f)} // {output_pot(g)}")
+            print(
+                f"Each term of the cost has values {scal(a, output_pot(f))} // {scal(b, output_pot(g))} // {torch.sum(self.blur * expC, dim=(1,2))}")
+            return  cost
         return output_cost
 
     def output_sinkhorn(self):
         def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
-            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
-            output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
-            return scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
-        return output_cost
-
-    def output_hausdorff(self):
-        def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
-            phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
-            output_pot = lambda x: phis(-x) + self.blur * partial_phis(-x)
-            return scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+            phis = self.legendre_entropy()
+            output_pot = lambda x: - phis(-x)
+            cost = scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+            Cxy, Cxx, Cyy = dist_matrix(x, y, p), dist_matrix(x, x, p), dist_matrix(y, y, p)
+            expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
+            cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1,2)) \
+                   - torch.sum(self.blur * expC(a, a, f_xx, f_xx, Cxx), dim=(1,2)) \
+                   - torch.sum(self.blur * expC(b, b, g_yy, g_yy, Cyy), dim=(1,2))
+            return cost
         return output_cost
 
 
 
 class TotalVariation(Entropy):
-
     def __init__(self, blur, reach):
         super(TotalVariation, self).__init__()
 
@@ -252,8 +263,7 @@ class TotalVariation(Entropy):
 
     def aprox(self):
         def aprox(x):
-            torch.min(torch.max(-self.reach * torch.ones_like(x), x), self.reach * torch.ones_like(x))
-            return x
+            return torch.min(torch.max(-self.reach * torch.ones_like(x), x), self.reach * torch.ones_like(x))
         return aprox
 
     def init_potential(self):
@@ -273,12 +283,40 @@ class TotalVariation(Entropy):
             return torch.min(err1, err2)
         return err
 
+    def output_regularized(self):
+        def output_cost(a, x, b, y, p, f, g):
+            phis = self.legendre_entropy()
+            output_pot = lambda x: - phis(-x)
+            cost = scal(a, output_pot(f)) + scal(b, output_pot(g))
+            C = dist_matrix(x, y, p)
+            expC = a[:,:,None] * b[:,None,:] * (1 - ((f[:,:,None] + g[:,None,:] - C) / self.blur).exp())
+            cost = cost + torch.sum(self.blur * expC, dim=(1,2))
+            print(type(f))
+            print(f"Each output potential is equal to {f} // {g}")
+            print(f"Each output potential is equal to {output_pot(f)} // {output_pot(g)}")
+            print(
+                f"Each term of the cost has values {scal(a, output_pot(f))} // {scal(b, output_pot(g))} // {torch.sum(self.blur * expC, dim=(1,2))}")
+            return cost
+        return output_cost
+
+    def output_sinkhorn(self):
+        def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+            phis = self.legendre_entropy()
+            output_pot = lambda x: - phis(-x)
+            cost = scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+            Cxy, Cxx, Cyy = dist_matrix(x, y, p), dist_matrix(x, x, p), dist_matrix(y, y, p)
+            expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
+            cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1,2)) \
+                   - 0.5 * torch.sum(self.blur * expC(a, a, f_xx, f_xx, Cxx), dim=(1,2)) \
+                   - 0.5 * torch.sum(self.blur * expC(b, b, g_yy, g_yy, Cyy), dim=(1,2))
+            return cost
+        return output_cost
+
 
 class PowerEntropy(Entropy):
-
     def __init__(self, blur, reach, power):
         super(PowerEntropy, self).__init__()
-        assert power < 1, "The entropy exponent is not admissible (>1)."
+        assert power < 1, "The entropy exponent is not admissible (should be <1)."
 
         self.blur = blur
         self.reach = reach
@@ -300,12 +338,12 @@ class PowerEntropy(Entropy):
                 return - self.reach * (1 - (x / self.reach)).log()
         else:
             def phis(x):
-                return self.reach * (1 - 1 / self.power) * ((1 + (x / self.reach) / (self.power - 1)) ** self.power - 1)
+                return self.reach * (1 - 1 / self.power) * ((1 + x / (self.reach * (self.power - 1))) ** self.power - 1)
         return phis
 
     def grad_legendre(self):
         def partial_phis(x):
-            return ( 1 - (x / (self.reach * (1-self.power))) ) ** (self.power - 1)
+            return (1 - (x / (self.reach * (1-self.power)))) ** (self.power - 1)
         return partial_phis
 
     def aprox(self):
@@ -317,7 +355,7 @@ class PowerEntropy(Entropy):
 
     def init_potential(self):
         def init_pot(a,x,b,y,p):
-            f = self.reach * (1-self.power) * (b.sum(dim=1) ** (1 / (1-self.power) ) - 1)[:,None]
-            g = self.reach * (1-self.power) * (a.sum(dim=1) ** (1 / (1-self.power) ) - 1)[:,None]
+            f = self.reach * (1 - self.power) * (b.sum(dim=1) ** (1 / (self.power - 1)) - 1)[:,None]
+            g = self.reach * (1 - self.power) * (a.sum(dim=1) ** (1 / (self.power - 1)) - 1)[:,None]
             return f, g
         return init_pot

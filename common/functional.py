@@ -4,25 +4,10 @@ from .entropy import Entropy
 from .sinkhorn import dist_matrix, sinkhorn_asym, sinkhorn_sym
 
 
-def output_potential(loss, entropy):
-    """
-    It formats the potential to give an evaluation of the divergence of the form
-    < a , F(f) > + < b , G(g) >
-    """
-    assert loss in ['regularized', 'sinkhorn', 'hausdorff']
-    phis, partial_phis = entropy.legendre_entropy(), entropy.grad_legendre()
-    if loss in ['regularized', 'sinkhorn']:
-        output = lambda x: - phis(-x) - 0.5 * entropy.blur * partial_phis(-x)
-    if loss in ['hausdorff']:
-        output = lambda x: phis(-x) + entropy.blur * partial_phis(-x)
-    return output
-
-
 def regularized_ot(a, x, b, y, p, entropy, nits=100, tol=1e-3, assume_convergence=False):  # OT_eps
     f_x, g_y = sinkhorn_asym(a, x, b, y, p=p, entropy=entropy, nits=nits, tol=tol,
                              assume_convergence=assume_convergence)
-    output = output_potential(loss='regularized', entropy=entropy)
-    cost = scal(a, output(f_x)) + scal(b, output(g_y)) + entropy.blur * a.sum(1)[:,None] * b.sum(1)[:,None]
+    cost = entropy.output_regularized()(a, x, b, y, p, f_x, g_y)
     return cost
 
 
@@ -31,8 +16,7 @@ def hausdorff_divergence(a, x, b, y, p, entropy, nits=100, tol=1e-3, assume_conv
                              assume_convergence=assume_convergence)
     f_yx, g_y = sinkhorn_sym(b, y, p=p, entropy=entropy, y_j=x, nits=nits, tol=tol,
                              assume_convergence=assume_convergence)
-    output = output_potential(loss='hausdorff', entropy=entropy)
-    cost = scal(a, output(f_x) - output(f_yx)) + scal(b, output(g_y) - output(g_xy))
+    cost = entropy.output_hausdorff()(a, x, b, y, p, f_yx, f_x, g_xy, g_y)
     return cost
 
 
@@ -41,8 +25,7 @@ def sinkhorn_divergence(a, x, b, y, p, entropy, nits=100, tol=1e-3, assume_conve
                                assume_convergence=assume_convergence)
     _, f_x = sinkhorn_sym(a, x, p=p, entropy=entropy, nits=nits, tol=tol, assume_convergence=assume_convergence)
     _, g_y = sinkhorn_sym(b, y, p=p, entropy=entropy, nits=nits, tol=tol, assume_convergence=assume_convergence)
-    output = output_potential(loss='sinkhorn', entropy=entropy)
-    cost = scal(a, output(f_xy) - output(f_x)) + scal(b, output(g_xy) - output(g_y))
+    cost = entropy.output_sinkhorn()(a, x, b, y, p, f_xy, f_x, g_xy, g_y)
     return cost
 
 
