@@ -74,7 +74,7 @@ def test_sinkhorn_consistency_sym_asym(entropy, p, m, reach):
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     err = entropy.error_sink()
-    f_a, g_a = sinkhorn_asym(m * a, x, m * a, x, p=p, entropy=entropy, tol=0)
+    f_a, g_a = sinkhorn_asym(m * a, x, m * a, x, p=p, entropy=entropy, nits=10000, tol=0)
     _, f_s = sinkhorn_sym(m * a, x, p=p, entropy=entropy, nits=10000, tol=0)
     assert torch.allclose(err(f_a, f_s), torch.Tensor([0.0]), atol=1e-6)
     assert torch.allclose(err(g_a, f_s), torch.Tensor([0.0]), atol=1e-6)

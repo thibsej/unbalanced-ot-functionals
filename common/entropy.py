@@ -350,7 +350,7 @@ class PowerEntropy(Entropy):
         def aprox(x):
             delta = -(x / (self.blur * (1-self.power))) - (self.reach / self.blur) + \
                     torch.Tensor([self.reach / self.blur]).log()
-            return (1-self.power) * (self.reach- self.blur * log_lambertw(delta))
+            return (1 - self.power) * (self.reach - self.blur * log_lambertw(delta))
         return aprox
 
     def init_potential(self):
