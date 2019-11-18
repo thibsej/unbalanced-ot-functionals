@@ -59,22 +59,23 @@ def test_sinkhorn_asym_infinite_blur_balanced(entropy, atol, p, m, reach):
 def test_sinkhorn_sym_infinite_blur(entropy, atol, p, m, reach):
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
+    err = entropy.error_sink()
     f_c, _ = entropy.init_potential()(m * a, x, m * a, x, p)
     _, f = sinkhorn_sym(m * a, x, p=p, entropy=entropy, nits=10000, tol=0)
-    assert torch.allclose(f, f_c, atol=atol)
+    assert torch.allclose(err(f, f_c), torch.Tensor([0.0]), atol=atol)
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m', [0.7, 1., 2.])
-@pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
-                                     Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
-def test_sinkhorn_consistency_sym_asym(entropy, p, m, reach):
+@pytest.mark.parametrize('entropy,atol', [(KullbackLeibler(1e0, 1e0), 1e-6), (Balanced(1e0), 1e-6), (TotalVariation(1e0, 1e0), 1e-4),
+                                     (Range(1e0, 0.3, 2), 1e-6), (PowerEntropy(1e0, 1e0, 0), 1e-6), (PowerEntropy(1e0, 1e0, -1), 1e-6)])
+def test_sinkhorn_consistency_sym_asym(entropy, atol, p, m, reach):
     """Test if the symmetric and assymetric Sinkhorn output the same results when (a,x)=(b,y)"""
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     err = entropy.error_sink()
     f_a, g_a = sinkhorn_asym(m * a, x, m * a, x, p=p, entropy=entropy, nits=10000, tol=0)
     _, f_s = sinkhorn_sym(m * a, x, p=p, entropy=entropy, nits=10000, tol=0)
-    assert torch.allclose(err(f_a, f_s), torch.Tensor([0.0]), atol=1e-6)
-    assert torch.allclose(err(g_a, f_s), torch.Tensor([0.0]), atol=1e-6)
+    assert torch.allclose(err(f_a, f_s), torch.Tensor([0.0]), atol=atol)
+    assert torch.allclose(err(g_a, f_s), torch.Tensor([0.0]), atol=atol)

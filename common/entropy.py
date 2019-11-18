@@ -268,12 +268,18 @@ class TotalVariation(Entropy):
 
     def init_potential(self):
         def init_pot(a,x,b,y,p):
-            f, g = convolution(a, x, b, y, p)
             aprox = self.aprox()
-            scal_prod = scal(b, g)
-            f = f - 0.5 * scal_prod[:, None]
-            g = g - 0.5 * scal_prod[:, None]
-            return -aprox(-f), -aprox(-g)
+            mask_a, mask_b = torch.eq(a.sum(1), torch.ones(a.size(0))), torch.eq(b.sum(1), torch.ones(a.size(0)))
+            f, g = torch.ones_like(a), torch.ones_like(b)
+            if mask_a.all() or mask_b.all():
+                f, g = convolution(a, x, b, y, p)
+                scal_prod = scal(b, g)
+                f = f - 0.5 * scal_prod[:, None]
+                g = g - 0.5 * scal_prod[:, None]
+                f, g = -aprox(-f), -aprox(-g)
+            f[~mask_a, :] = - self.reach * (a[~mask_a, :].sum(1)).log().sign()[:,None]
+            g[~mask_b, :] = - self.reach * (b[~mask_b, :].sum(1)).log().sign()[:,None]
+            return f, g
         return init_pot
 
     def error_sink(self):
