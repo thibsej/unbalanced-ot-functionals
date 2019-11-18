@@ -9,22 +9,26 @@ torch.set_printoptions(precision=10)
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
+@pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m', [1., 0.7, 2.])
 @pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
                                      Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
 @pytest.mark.parametrize('div', [hausdorff_divergence, sinkhorn_divergence])
-def test_divergence_zero(div, entropy, p, m):
+def test_divergence_zero(div, entropy, reach, p, m):
+    entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     cost = div(m * a, x, m * a, x, p, entropy, nits=10000, tol=0)
     assert torch.allclose(cost, torch.Tensor([0.0]), atol=1e-6)
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
+@pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])
 @pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
                                      Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
 @pytest.mark.parametrize('div', [hausdorff_divergence, sinkhorn_divergence])
-def test_divergence_positivity(div, entropy, p, m, n):
+def test_divergence_positivity(div, entropy, reach, p, m, n):
+    entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
     cost = div(m * a, x, n * b, y, p, entropy, nits=10000, tol=0)
@@ -32,10 +36,12 @@ def test_divergence_positivity(div, entropy, p, m, n):
 
 # TODO: Need to debug the Power entropy (why is there a negative value of the loss ?)
 @pytest.mark.parametrize('p', [1, 1.5, 2])
+@pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])
 @pytest.mark.parametrize('entropy', [KullbackLeibler(1e4, 1e0), TotalVariation(1e4, 1e0), Range(1e4, 0.3, 2),
                                      PowerEntropy(1e4, 1e0, 0), PowerEntropy(1e4, 1e0, -1)])
-def test_consistency_infinite_blur_regularized_ot_unbalanced(entropy, p, m, n):
+def test_consistency_infinite_blur_regularized_ot_unbalanced(entropy, reach, p, m, n):
+    entropy.reach = reach
     torch.set_default_dtype(torch.float64)
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
@@ -59,9 +65,11 @@ def test_consistency_infinite_blur_regularized_ot_balanced(entropy, p):
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
+@pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('entropy', [KullbackLeibler(1e6, 1e0), Balanced(1e6), TotalVariation(1e6, 1e0),
                                      Range(1e6, 0.3, 2), PowerEntropy(1e6, 1e0, 0), PowerEntropy(1e6, 1e0, -1)])
-def test_consistency_infinite_blur_sinkhorn_div(entropy, p):
+def test_consistency_infinite_blur_sinkhorn_div(entropy, reach, p):
+    entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
     control = energyDistance(a, x, b, y, p)
