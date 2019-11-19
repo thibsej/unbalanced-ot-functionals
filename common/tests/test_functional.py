@@ -7,7 +7,8 @@ from common.utils import generate_measure, convolution, scal
 
 torch.set_printoptions(precision=10)
 
-
+# TODO: Understand negativity of range for sinkhorn divergence
+# TODO: Very small negativity (1e-6) for pPwEnt(-1)
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m', [1., 0.7, 2.])
@@ -20,7 +21,12 @@ def test_divergence_zero(div, entropy, reach, p, m):
     cost = div(m * a, x, m * a, x, p, entropy, nits=10000, tol=0)
     assert torch.allclose(cost, torch.Tensor([0.0]), atol=1e-6)
 
-
+# TODO: Hausdorff negative for balanced OT
+# TODO: Hausdorff negative for Range
+# TODO: Sinkhorn negative for KL
+# TODO: Sinkhorn negative for TV
+# TODO: Sinkhorn negative for Range
+# TODO: Sinkhorn negative for PwEntropy
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])

@@ -8,11 +8,10 @@ from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, Pow
 
 nbatch, nsample, ndim, p = 1, 100, 2, 2
 _, x = generate_measure(nbatch, nsample, ndim)
-_, y = generate_measure(nbatch, nsample, ndim)
 a = torch.ones((1,nsample)) / nsample
 
 x = torch.Tensor([0.5, 0.25])[None, None, :] * x
-y = torch.Tensor([0.5, 0.25])[None, None, :] * y + torch.Tensor([0.5, 0.75])[None, None, :]
+y = x + torch.Tensor([0.5, 0.75])[None, None, :]
 X, Y = x[0,:,:].numpy(), y[0,:,:].numpy()
 x.requires_grad = True
 
