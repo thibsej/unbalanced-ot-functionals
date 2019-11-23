@@ -1,30 +1,28 @@
 import torch
 from .utils import dist_matrix, scal
 from .entropy import Entropy
-from .sinkhorn import dist_matrix, sinkhorn_asym, sinkhorn_sym
+from .sinkhorn import dist_matrix, BatchVanillaSinkhorn
 
 
-def regularized_ot(a, x, b, y, p, entropy, nits=100, tol=1e-3, assume_convergence=False):  # OT_eps
-    f_x, g_y = sinkhorn_asym(a, x, b, y, p=p, entropy=entropy, nits=nits, tol=tol,
-                             assume_convergence=assume_convergence)
+def regularized_ot(a, x, b, y, p, entropy, solver=BatchVanillaSinkhorn(nits=100, tol=1e-3, assume_convergence=True)):
+    f_x, g_y = solver.sinkhorn_asym(a, x, b, y, p=p, entropy=entropy)
     cost = entropy.output_regularized()(a, x, b, y, p, f_x, g_y)
     return cost
 
 
-def hausdorff_divergence(a, x, b, y, p, entropy, nits=100, tol=1e-3, assume_convergence=False):  # H_eps
-    g_xy, f_x = sinkhorn_sym(a, x, p=p, entropy=entropy, y_j=y, nits=nits, tol=tol,
-                             assume_convergence=assume_convergence)
-    f_yx, g_y = sinkhorn_sym(b, y, p=p, entropy=entropy, y_j=x, nits=nits, tol=tol,
-                             assume_convergence=assume_convergence)
+def hausdorff_divergence(a, x, b, y, p, entropy, solver=BatchVanillaSinkhorn(nits=100, tol=1e-3,
+                                                                             assume_convergence=True)):
+    g_xy, f_x = solver.sinkhorn_sym(a, x, p=p, entropy=entropy, y_j=y)
+    f_yx, g_y = solver.sinkhorn_sym(b, y, p=p, entropy=entropy, y_j=x)
     cost = entropy.output_hausdorff()(a, x, b, y, p, f_yx, f_x, g_xy, g_y)
     return cost
 
 
-def sinkhorn_divergence(a, x, b, y, p, entropy, nits=100, tol=1e-3, assume_convergence=False):  # S_eps
-    f_xy, g_xy = sinkhorn_asym(a, x, b, y, p=p, entropy=entropy, nits=nits, tol=tol,
-                               assume_convergence=assume_convergence)
-    _, f_x = sinkhorn_sym(a, x, p=p, entropy=entropy, nits=nits, tol=tol, assume_convergence=assume_convergence)
-    _, g_y = sinkhorn_sym(b, y, p=p, entropy=entropy, nits=nits, tol=tol, assume_convergence=assume_convergence)
+def sinkhorn_divergence(a, x, b, y, p, entropy, solver=BatchVanillaSinkhorn(nits=100, tol=1e-3,
+                                                                            assume_convergence=True)):
+    f_xy, g_xy = solver.sinkhorn_asym(a, x, b, y, p=p, entropy=entropy)
+    _, f_x = solver.sinkhorn_sym(a, x, p=p, entropy=entropy)
+    _, g_y = solver.sinkhorn_sym(b, y, p=p, entropy=entropy)
     cost = entropy.output_sinkhorn()(a, x, b, y, p, f_xy, f_x, g_xy, g_y)
     return cost
 

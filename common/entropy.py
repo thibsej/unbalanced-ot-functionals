@@ -2,6 +2,7 @@ import torch
 from .torch_lambertw import log_lambertw
 from .utils import scal, dist_matrix, convolution
 
+#TODO: Change the way functions are coded. It is weird to have self.func()(params).
 class Entropy(object):
     """
     Object that defines the required modules for entropy functions.
@@ -47,10 +48,6 @@ class Entropy(object):
         def output_cost(a, x, b, y, p, f, g):
             phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
             output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
-            print(type(f))
-            print(f"Each output potential is equal to {f} // {g}")
-            print(f"Each output potential is equal to {output_pot(f)} // {output_pot(g)}")
-            print(f"Each term of the cost has values {scal(a, output_pot(f))} // {scal(b, output_pot(g))} // {self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]}")
             return scal(a, output_pot(f)) + scal(b, output_pot(g)) + self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]
         return output_cost
 

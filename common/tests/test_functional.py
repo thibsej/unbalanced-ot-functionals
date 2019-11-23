@@ -2,10 +2,13 @@ import pytest
 
 import torch
 from common.functional import regularized_ot, hausdorff_divergence, sinkhorn_divergence, energyDistance
+from common.sinkhorn import BatchVanillaSinkhorn
 from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
 from common.utils import generate_measure, convolution, scal
 
 torch.set_printoptions(precision=10)
+
+solver = BatchVanillaSinkhorn(nits=10000, tol=0, assume_convergence=True)
 
 # TODO: Understand negativity of range for sinkhorn divergence
 # TODO: Very small negativity (1e-6) for pPwEnt(-1)
@@ -18,7 +21,7 @@ torch.set_printoptions(precision=10)
 def test_divergence_zero(div, entropy, reach, p, m):
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
-    cost = div(m * a, x, m * a, x, p, entropy, nits=10000, tol=0)
+    cost = div(m * a, x, m * a, x, p, entropy, solver=solver)
     assert torch.allclose(cost, torch.Tensor([0.0]), atol=1e-6)
 
 # TODO: Hausdorff negative for balanced OT
@@ -37,7 +40,7 @@ def test_divergence_positivity(div, entropy, reach, p, m, n):
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
-    cost = div(m * a, x, n * b, y, p, entropy, nits=10000, tol=0)
+    cost = div(m * a, x, n * b, y, p, entropy, solver=solver)
     assert torch.ge(cost, 0.0).all()
 
 # TODO: Need to debug the Power entropy (why is there a negative value of the loss ?)
@@ -54,7 +57,7 @@ def test_consistency_infinite_blur_regularized_ot_unbalanced(entropy, reach, p, 
     phi = entropy.entropy()
     f, g = convolution(a, x, b, y, p)
     control = scal(a, f) + m * phi(torch.Tensor([n])) + n * phi(torch.Tensor([m]))
-    cost = regularized_ot(m * a, x, n * b, y, p, entropy, nits=10000, tol=0)
+    cost = regularized_ot(m * a, x, n * b, y, p, entropy, solver=solver)
     assert torch.allclose(cost, control, atol=1e-0)
 
 
@@ -66,7 +69,7 @@ def test_consistency_infinite_blur_regularized_ot_balanced(entropy, p):
     b, y = generate_measure(1, 6, 2)
     f, g = convolution(a, x, b, y, p)
     control = scal(a, f)
-    cost = regularized_ot(a, x, b, y, p, entropy, nits=10000, tol=0)
+    cost = regularized_ot(a, x, b, y, p, entropy, solver)
     assert torch.allclose(cost, control, atol=1e-0)
 
 
@@ -79,5 +82,5 @@ def test_consistency_infinite_blur_sinkhorn_div(entropy, reach, p):
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
     control = energyDistance(a, x, b, y, p)
-    cost = sinkhorn_divergence(a, x, b, y, p, entropy, nits=10000, tol=0)
+    cost = sinkhorn_divergence(a, x, b, y, p, entropy, solver)
     assert torch.allclose(cost, control, atol=1e-0)

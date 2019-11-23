@@ -1,10 +1,11 @@
 import pytest
 
 import torch
-from common.sinkhorn import sinkhorn_asym, sinkhorn_sym
+from common.sinkhorn import BatchVanillaSinkhorn
 from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
 from common.utils import generate_measure
 
+solver = BatchVanillaSinkhorn(nits=10000, tol=0, assume_convergence=True)
 
 # @pytest.mark.parametrize('p', [1, 1.5, 2])
 # @pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
@@ -30,7 +31,7 @@ def test_sinkhorn_asym_infinite_blur_unbalanced(entropy, atol, p, m, n, reach):
     b, y = generate_measure(1, 6, 2)
     err = entropy.error_sink()
     f_c, g_c = entropy.init_potential()(m * a, x, n * b, y, p)
-    f, g = sinkhorn_asym(m * a, x, n * b, y, p=p, entropy=entropy, nits=10000, tol=0)
+    f, g = solver.sinkhorn_asym(m * a, x, n * b, y, p=p, entropy=entropy)
     assert torch.allclose(err(f, f_c), torch.Tensor([0.0]), atol=atol)
     assert torch.allclose(err(g, g_c), torch.Tensor([0.0]), atol=atol)
 
@@ -45,7 +46,7 @@ def test_sinkhorn_asym_infinite_blur_balanced(entropy, atol, p, m, reach):
     b, y = generate_measure(1, 6, 2)
     err = entropy.error_sink()
     f_c, g_c = entropy.init_potential()(m * a, x, m * b, y, p)
-    f, g = sinkhorn_asym(m * a, x, m * b, y, p=p, entropy=entropy, nits=10000, tol=0)
+    f, g = solver.sinkhorn_asym(m * a, x, m * b, y, p=p, entropy=entropy)
     assert torch.allclose(err(f, f_c), torch.Tensor([0.0]), atol=atol)
     assert torch.allclose(err(g, g_c), torch.Tensor([0.0]), atol=atol)
 
@@ -61,7 +62,7 @@ def test_sinkhorn_sym_infinite_blur(entropy, atol, p, m, reach):
     a, x = generate_measure(1, 5, 2)
     err = entropy.error_sink()
     f_c, _ = entropy.init_potential()(m * a, x, m * a, x, p)
-    _, f = sinkhorn_sym(m * a, x, p=p, entropy=entropy, nits=10000, tol=0)
+    _, f = solver.sinkhorn_sym(m * a, x, p=p, entropy=entropy)
     assert torch.allclose(err(f, f_c), torch.Tensor([0.0]), atol=atol)
 
 
@@ -75,7 +76,7 @@ def test_sinkhorn_consistency_sym_asym(entropy, atol, p, m, reach):
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     err = entropy.error_sink()
-    f_a, g_a = sinkhorn_asym(m * a, x, m * a, x, p=p, entropy=entropy, nits=10000, tol=0)
-    _, f_s = sinkhorn_sym(m * a, x, p=p, entropy=entropy, nits=10000, tol=0)
+    f_a, g_a = solver.sinkhorn_asym(m * a, x, m * a, x, p=p, entropy=entropy)
+    _, f_s = solver.sinkhorn_sym(m * a, x, p=p, entropy=entropy)
     assert torch.allclose(err(f_a, f_s), torch.Tensor([0.0]), atol=atol)
     assert torch.allclose(err(g_a, f_s), torch.Tensor([0.0]), atol=atol)
