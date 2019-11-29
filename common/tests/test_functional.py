@@ -11,7 +11,6 @@ torch.set_printoptions(precision=10)
 solver = BatchVanillaSinkhorn(nits=10000, tol=0, assume_convergence=True)
 
 # TODO: Understand negativity of range for sinkhorn divergence
-# TODO: Very small negativity (1e-6) for pPwEnt(-1)
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m', [1., 0.7, 2.])
@@ -24,16 +23,14 @@ def test_divergence_zero(div, entropy, reach, p, m):
     cost = div(m * a, x, m * a, x, p, entropy, solver=solver)
     assert torch.allclose(cost, torch.Tensor([0.0]), atol=1e-6)
 
-# TODO: Hausdorff negative for balanced OT
+
 # TODO: Hausdorff negative for Range
-# TODO: Sinkhorn negative for KL
 # TODO: Sinkhorn negative for TV
 # TODO: Sinkhorn negative for Range
-# TODO: Sinkhorn negative for PwEntropy
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])
-@pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
+@pytest.mark.parametrize('entropy', [Balanced(1e0), KullbackLeibler(1e0, 1e0), TotalVariation(1e0, 1e0),
                                      Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
 @pytest.mark.parametrize('div', [hausdorff_divergence, sinkhorn_divergence])
 def test_divergence_positivity(div, entropy, reach, p, m, n):
@@ -43,7 +40,7 @@ def test_divergence_positivity(div, entropy, reach, p, m, n):
     cost = div(m * a, x, n * b, y, p, entropy, solver=solver)
     assert torch.ge(cost, 0.0).all()
 
-# TODO: Need to debug the Power entropy (why is there a negative value of the loss ?)
+
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])

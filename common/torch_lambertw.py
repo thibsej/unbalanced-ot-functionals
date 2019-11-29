@@ -6,11 +6,12 @@ def log_lambertw(x):
     The initialization is performed with a local approximation.
     """
     z = init_lambertw(x)
-    a = lambda w: (w * (w.log() + w - x)) / (1 + w)
+    eps = torch.finfo(x.dtype).eps
+    a = lambda w: (w * ((w + eps).log() + w - x)) / (1 + w)
     b = lambda w: -1 / (w * (1 + w))
     for i in range(4):
         c = a(z)
-        z = z - c / (1 - 0.5 * c * b(z))
+        z = torch.max(z - c / (1 - 0.5 * c * b(z)), torch.tensor([eps], dtype=x.dtype)[:,None])
     return z
 
 def init_lambertw(x):

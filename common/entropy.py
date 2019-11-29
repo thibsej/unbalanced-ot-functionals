@@ -56,7 +56,7 @@ class Entropy(object):
         def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
             phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
             output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
-            return scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+            return scal(a, output_pot(f_xy) - output_pot(f_xx)) + scal(b, output_pot(g_xy) - output_pot(g_yy))
         return output_cost
 
     def output_hausdorff(self):
@@ -75,6 +75,7 @@ class KullbackLeibler(Entropy):
 
         self.blur = blur
         self.reach = reach
+        self.__name__ = 'KullbackLeibler'
 
     def entropy(self):
         def phi(x):
@@ -112,6 +113,7 @@ class Balanced(Entropy):
         super(Balanced, self).__init__()
 
         self.blur = blur
+        self.__name__ = 'Balanced'
 
     def entropy(self):
         def phi(x):
@@ -162,7 +164,7 @@ class Balanced(Entropy):
 
     def output_hausdorff(self):
         def output_cost(a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
-            return scal(a, f_xx - f_xy) + scal(b, g_yy - g_xy)
+            return scal(a, f_xy - f_xx) + scal(b, g_xy - g_yy)
         return output_cost
 
 
@@ -174,6 +176,7 @@ class Range(Entropy):
         self.blur = blur
         self.reach_low = reach_low
         self.reach_up = reach_up
+        self.__name__ = 'Range'
 
     def entropy(self):
         def phi(x):
@@ -195,8 +198,8 @@ class Range(Entropy):
 
     def aprox(self):
         def aprox(x):
-            r0, r1 = torch.Tensor([self.reach_low]), torch.Tensor([self.reach_up])
-            return torch.min(torch.max(torch.Tensor([0]), x - self.blur * r1.log()), x - self.blur * r0.log())
+            r0, r1 = torch.tensor([self.reach_low], dtype=x.dtype), torch.tensor([self.reach_up], dtype=x.dtype)
+            return torch.min(torch.max(torch.tensor([0.0], dtype=x.dtype), x - self.blur * r1.log()), x - self.blur * r0.log())
         return aprox
 
     def init_potential(self):
@@ -242,6 +245,7 @@ class TotalVariation(Entropy):
 
         self.blur = blur
         self.reach = reach
+        self.__name__ = 'TotalVariation'
 
     def entropy(self):
         def phi(x):
@@ -266,7 +270,8 @@ class TotalVariation(Entropy):
     def init_potential(self):
         def init_pot(a,x,b,y,p):
             aprox = self.aprox()
-            mask_a, mask_b = torch.eq(a.sum(1), torch.ones(a.size(0))), torch.eq(b.sum(1), torch.ones(a.size(0)))
+            mask_a, mask_b = torch.eq(a.sum(1), torch.ones(a.size(0), dtype=a.dtype)), \
+                             torch.eq(b.sum(1), torch.ones(b.size(0), dtype=b.dtype))
             f, g = torch.ones_like(a), torch.ones_like(b)
             if mask_a.all() or mask_b.all():
                 f, g = convolution(a, x, b, y, p)
@@ -324,6 +329,7 @@ class PowerEntropy(Entropy):
         self.blur = blur
         self.reach = reach
         self.power = power
+        self.__name__ = 'PowerEntropy'
 
     def entropy(self):
         s = self.power / ( self.power - 1 )
@@ -351,8 +357,8 @@ class PowerEntropy(Entropy):
 
     def aprox(self):
         def aprox(x):
-            delta = -(x / (self.blur * (1-self.power))) - (self.reach / self.blur) + \
-                    torch.Tensor([self.reach / self.blur]).log()
+            delta = -(x / (self.blur * (1-self.power))) + (self.reach / self.blur) + \
+                    torch.tensor([self.reach / self.blur], dtype=x.dtype).log()
             return (1 - self.power) * (self.reach - self.blur * log_lambertw(delta))
         return aprox
 

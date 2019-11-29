@@ -1,10 +1,6 @@
 import numpy as np
 import torch
 
-#TODO: Add the utils for ScalingSinkhorn, ie compute support of measure
-#--------------------------------
-# Geometric operations
-#-------------------------------
 
 def scal(a, f):
     return torch.sum(a * f, dim=1)
@@ -34,12 +30,6 @@ def softmin(a_i, x_i, b_j, y_j, p):
     a_i_log, b_j_log = a_i.log(), b_j.log()
     softmin_x = lambda f_i, ep: - ep * ((f_i / ep + a_i_log)[:, None, :] - C_e.transpose(1, 2) / ep).logsumexp(dim=2)
     softmin_y = lambda f_j, ep: - ep * ((f_j / ep + b_j_log)[:, None, :] - C_e / ep).logsumexp(dim=2)
-    return softmin_x, softmin_y
-
-def softmin(a_i, b_j, C):
-    a_i_log, b_j_log = a_i.log(), b_j.log()
-    softmin_x = lambda f_i, ep: - ep * ((f_i / ep + a_i_log)[:, None, :] - C.transpose(1, 2) / ep).logsumexp(dim=2)
-    softmin_y = lambda f_j, ep: - ep * ((f_j / ep + b_j_log)[:, None, :] - C / ep).logsumexp(dim=2)
     return softmin_x, softmin_y
 
 
