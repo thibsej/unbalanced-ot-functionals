@@ -16,7 +16,6 @@ def gaussian_spot(grid, mean, var):
     a = dens[dens > 1e-5]
     a[0], a[-1] = 0.0, 0.0
     a = a / np.sum(a)
-    print(f"Size of tensor is {x.shape}")
     return a, x
 
 nsample = 1000
@@ -42,7 +41,7 @@ solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
 entropy = KullbackLeibler(1e-2, 0.6)
 optimizer = torch.optim.Adam([Z, C], lr=0.1)
 for it in range(3):
-    print(f"Iteration {it}")
+    print(f"\nIteration {it}")
     optimizer.zero_grad()
     cost = 0.5 * sinkhorn_divergence(C, Z, A, X, p, entropy, solver) + \
            0.5 * sinkhorn_divergence(C, Z, B, Y, p, entropy, solver)

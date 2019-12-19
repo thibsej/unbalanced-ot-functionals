@@ -46,40 +46,6 @@ solver = BatchVanillaSinkhorn(nits=10000, tol=1e-5, assume_convergence=True)
 list_entropy = [Balanced(blur), KullbackLeibler(blur, reach), TotalVariation(blur, reach), Range(blur, 0.7, 1.3),
                 PowerEntropy(blur, reach, 0.)]
 
-# # Init of plot
-# blue = (.55,.55,.95)
-# red = (.95,.55,.55)
-# fig, ax = plt.subplots(nrows=1, ncols=6, figsize=(40,6))
-# ax[0].fill_between(x, 0, a, color='b')
-# ax[0].fill_between(y, 0, b, color='r')
-# ax[0].set_title('Input Marginals')
-# ax[0].set_yticklabels([])
-# ax[0].set_xticklabels([])
-#
-# # Plotting transport marginals for each entropy
-# k = 1
-# for entropy in list_entropy:
-#     f, g = solver.sinkhorn_asym(A, X, B, Y, p, entropy)
-#     C = dist_matrix(X, Y, p)
-#     pi = ((f[:, :, None] + g[:, None, :] - C) / blur).exp() * A[:, :, None] * B[:, None, :]
-#
-#     pi_1, pi_2 = pi.sum(dim=2), pi.sum(dim=1)
-#     pi_1, pi_2 = pi_1[0, :].data.numpy(), pi_2[0, :].data.numpy()
-#
-#     ax[k].plot(x, a, color='b', linestyle='--')
-#     ax[k].plot(y, b, color='r', linestyle='--')
-#     ax[k].fill_between(x, 0, pi_1, color=red)
-#     ax[k].fill_between(y, 0, pi_2, color=blue)
-#     ax[k].set_yticklabels([])
-#     ax[k].set_xticklabels([])
-#     ax[k].set_title(f'{entropy.__name__}')
-#     # ax[k].figsize = (100, 60)
-#     k += 1
-# plt.savefig('comparison_entropy.png')
-# plt.show()
-
-
-
 # Init of plot
 blue = (.55,.55,.95)
 red = (.95,.55,.55)
