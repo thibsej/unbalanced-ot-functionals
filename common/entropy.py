@@ -2,7 +2,7 @@ import torch
 from .torch_lambertw import log_lambertw
 from .utils import scal, dist_matrix, convolution
 
-#TODO: Change the way functions are coded. It is weird to have self.func()(params).
+
 class Entropy(object):
     """
     Object that defines the required modules for entropy functions.
@@ -43,19 +43,19 @@ class Entropy(object):
 
     def output_regularized(self, a, x, b, y, p, f, g):
         """Outputs the cost of the regularized OT"""
-        phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+        phis, partial_phis = self.legendre_entropy, self.grad_legendre
         output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
         return scal(a, output_pot(f)) + scal(b, output_pot(g)) + self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]
 
     def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
         """Outputs the cost of the Sinkhorn divergence"""
-        phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+        phis, partial_phis = self.legendre_entropy, self.grad_legendre
         output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
         return scal(a, output_pot(f_xy) - output_pot(f_xx)) + scal(b, output_pot(g_xy) - output_pot(g_yy))
 
     def output_hausdorff(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
         """Outputs the cost of the Hausdorff divergence"""
-        phis, partial_phis = self.legendre_entropy(), self.grad_legendre()
+        phis, partial_phis = self.legendre_entropy, self.grad_legendre
         output_pot = lambda x: phis(-x) + self.blur * partial_phis(-x)
         return scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
 
