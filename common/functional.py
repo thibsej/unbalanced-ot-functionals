@@ -6,7 +6,7 @@ from .sinkhorn import dist_matrix, BatchVanillaSinkhorn
 
 def regularized_ot(a, x, b, y, p, entropy, solver=BatchVanillaSinkhorn(nits=100, tol=1e-3, assume_convergence=True)):
     f_x, g_y = solver.sinkhorn_asym(a, x, b, y, p=p, entropy=entropy)
-    cost = entropy.output_regularized()(a, x, b, y, p, f_x, g_y)
+    cost = entropy.output_regularized(a, x, b, y, p, f_x, g_y)
     return cost
 
 
@@ -14,7 +14,7 @@ def hausdorff_divergence(a, x, b, y, p, entropy, solver=BatchVanillaSinkhorn(nit
                                                                              assume_convergence=True)):
     g_xy, f_x = solver.sinkhorn_sym(a, x, p=p, entropy=entropy, y_j=y)
     f_yx, g_y = solver.sinkhorn_sym(b, y, p=p, entropy=entropy, y_j=x)
-    cost = entropy.output_hausdorff()(a, x, b, y, p, f_yx, f_x, g_xy, g_y)
+    cost = entropy.output_hausdorff(a, x, b, y, p, f_yx, f_x, g_xy, g_y)
     return cost
 
 
@@ -23,7 +23,7 @@ def sinkhorn_divergence(a, x, b, y, p, entropy, solver=BatchVanillaSinkhorn(nits
     f_xy, g_xy = solver.sinkhorn_asym(a, x, b, y, p=p, entropy=entropy)
     _, f_x = solver.sinkhorn_sym(a, x, p=p, entropy=entropy)
     _, g_y = solver.sinkhorn_sym(b, y, p=p, entropy=entropy)
-    cost = entropy.output_sinkhorn()(a, x, b, y, p, f_xy, f_x, g_xy, g_y)
+    cost = entropy.output_sinkhorn(a, x, b, y, p, f_xy, f_x, g_xy, g_y)
     return cost
 
 

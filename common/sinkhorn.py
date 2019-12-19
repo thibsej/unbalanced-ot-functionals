@@ -25,10 +25,10 @@ class BatchVanillaSinkhorn(SinkhornSolver):
     def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy):
         if type(self.nits) in [list, tuple]: nits = self.nits[0]
         torch.set_grad_enabled(not self.assume_convergence)
-        f_i, g_j = entropy.init_potential()(a_i, x_i, b_j, y_j, p)
+        f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
         softmin_x, softmin_y = softmin(a_i, x_i, b_j, y_j, p)
-        aprox = entropy.aprox()
-        err = entropy.error_sink()
+        aprox = entropy.aprox
+        err = entropy.error_sink
         blur = entropy.blur
         i = 0
         while i < self.nits - 1:
@@ -54,10 +54,10 @@ class BatchVanillaSinkhorn(SinkhornSolver):
     def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None):
         if type(self.nits) in [list, tuple]: nits = self.nits[1]
         torch.set_grad_enabled(not self.assume_convergence)
-        f_i, _ = entropy.init_potential()(a_i, x_i, a_i, x_i, p)
+        f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
         softmin_xx = sym_softmin(a_i, x_i, x_i, p)
-        aprox = entropy.aprox()
-        err = entropy.error_sink()
+        aprox = entropy.aprox
+        err = entropy.error_sink
         blur = entropy.blur
         i = 0
         while i < (self.nits - 1):
@@ -109,11 +109,11 @@ class BatchScalingSinkhorn(SinkhornSolver):
 
     def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy):
         torch.set_grad_enabled(not self.assume_convergence)
-        f_i, g_j = entropy.init_potential()(a_i, x_i, b_j, y_j, p)
+        f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
         C = dist_matrix(x_i, y_j, p)
         softmin_x, softmin_y = self.cost_softmin(a_i, b_j, C)
         scales = self.epsilon_schedule(C.max(), entropy.blur, self.budget)
-        aprox = entropy.aprox()
+        aprox = entropy.aprox
         for scale in scales:
             g_j = - aprox(- softmin_x(f_i, scale))
             f_i = - aprox(- softmin_y(g_j, scale))
@@ -131,11 +131,11 @@ class BatchScalingSinkhorn(SinkhornSolver):
         return f_i, g_j
 
     def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None):
-        f_i, _ = entropy.init_potential()(a_i, x_i, a_i, x_i, p)
+        f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
         C = dist_matrix(x_i, y_j, p)
         softmin_xx, _ = self.cost_softmin(a_i, a_i, C)
         scales = self.epsilon_schedule(C.max(), entropy.blur, self.budget)
-        aprox = entropy.aprox()
+        aprox = entropy.aprox
         torch.set_grad_enabled(not self.assume_convergence)
         for scale in scales:
             f_i = 0.5 * (f_i - aprox(- softmin_xx(f_i, scale)))
