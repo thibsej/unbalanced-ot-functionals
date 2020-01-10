@@ -10,18 +10,33 @@ torch.set_printoptions(precision=10)
 
 solver = BatchVanillaSinkhorn(nits=10000, tol=0, assume_convergence=True)
 
-# TODO: Understand negativity of range for sinkhorn divergence
+
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m', [1., 0.7, 2.])
 @pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
                                      Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
-@pytest.mark.parametrize('div', [hausdorff_divergence, sinkhorn_divergence])
+@pytest.mark.parametrize('div', [sinkhorn_divergence, hausdorff_divergence])
 def test_divergence_zero(div, entropy, reach, p, m):
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     cost = div(m * a, x, m * a, x, p, entropy, solver=solver)
     assert torch.allclose(cost, torch.Tensor([0.0]), atol=1e-6)
+
+
+@pytest.mark.parametrize('p', [1, 1.5, 2])
+@pytest.mark.parametrize('reach', [0.5, 1., 2.])
+@pytest.mark.parametrize('m', [1., 0.7, 2.])
+@pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
+                                     Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
+def test_consistency_regularized_sym_asym(entropy, reach, p, m):
+    entropy.reach=reach
+    a, x = generate_measure(1, 5, 2)
+    f_xy, g_xy = solver.sinkhorn_asym(a, x, a, x, p, entropy)
+    f_xx = solver.sinkhorn_sym(a, x, p, entropy)
+    cost_asym = entropy.output_regularized(a, x, a, x, p, f_xy, g_xy)
+    cost_sym = entropy.output_regularized(a, x, a, x, p, f_xx, f_xx)
+    assert torch.allclose(cost_asym, cost_sym, atol=1e-6)
 
 
 # TODO: Hausdorff negative for Range

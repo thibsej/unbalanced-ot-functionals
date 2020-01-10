@@ -130,7 +130,7 @@ class Balanced(Entropy):
     def output_hausdorff(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
         return scal(a, f_xy - f_xx) + scal(b, g_xy - g_yy)
 
-# TODO: Add Hausdorf implementation
+
 class Range(Entropy):
 
     def __init__(self, blur, reach_low, reach_up):
@@ -171,22 +171,21 @@ class Range(Entropy):
         print(type(f))
         print(f"Each output potential is equal to {f} // {g}")
         print(f"Each output potential is equal to {output_pot(f)} // {output_pot(g)}")
-        print(
-            f"Each term of the cost has values {scal(a, output_pot(f))} // {scal(b, output_pot(g))} // {torch.sum(self.blur * expC, dim=(1,2))}")
+        print(f"Each term of the cost has values {scal(a, output_pot(f))} // {scal(b, output_pot(g))} // {torch.sum(self.blur * expC, dim=(1,2))}")
         return  cost
 
     def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
         phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
-        cost = scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+        cost = scal(a, output_pot(f_xy) - output_pot(f_xx)) + scal(b, output_pot(g_xy) - output_pot(g_yy))
         Cxy, Cxx, Cyy = dist_matrix(x, y, p), dist_matrix(x, x, p), dist_matrix(y, y, p)
         expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
         cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1,2)) \
-               - torch.sum(self.blur * expC(a, a, f_xx, f_xx, Cxx), dim=(1,2)) \
-               - torch.sum(self.blur * expC(b, b, g_yy, g_yy, Cyy), dim=(1,2))
+               - 0.5 * torch.sum(self.blur * expC(a, a, f_xx, f_xx, Cxx), dim=(1,2)) \
+               - 0.5 * torch.sum(self.blur * expC(b, b, g_yy, g_yy, Cyy), dim=(1,2))
         return cost
 
-# TODO: Add Hausdorf implementation
+
 class TotalVariation(Entropy):
     def __init__(self, blur, reach):
         super(TotalVariation, self).__init__()
@@ -244,13 +243,48 @@ class TotalVariation(Entropy):
     def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
         phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
-        cost = scal(a, output_pot(f_xx) - output_pot(f_xy)) + scal(b, output_pot(g_yy) - output_pot(g_xy))
+        cost = scal(a, output_pot(f_xy) - output_pot(f_xx)) + scal(b, output_pot(g_xy) - output_pot(g_yy))
         Cxy, Cxx, Cyy = dist_matrix(x, y, p), dist_matrix(x, x, p), dist_matrix(y, y, p)
         expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
         cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1,2)) \
                - 0.5 * torch.sum(self.blur * expC(a, a, f_xx, f_xx, Cxx), dim=(1,2)) \
                - 0.5 * torch.sum(self.blur * expC(b, b, g_yy, g_yy, Cyy), dim=(1,2))
         return cost
+
+
+class OtherPowerEntropy(Entropy):
+    def __init__(self, blur, reach, power):
+        super(OtherPowerEntropy, self).__init__()
+        assert power < 1, "The entropy exponent is not admissible (should be <1)."
+
+        self.blur = blur
+        self.reach = reach
+        self.power = power
+        self.__name__ = 'PowerEntropy'
+
+    def entropy(self, x):
+        s = self.power / ( self.power - 1 )
+        return (self.reach / (s * (s - 1))) * (x**s - s*(x-1) - 1)
+
+    def legendre_entropy(self, x):
+        return self.reach * (1 - 1 / self.power) * ((1 + x / (self.reach * (self.power - 1))) ** self.power - 1)
+
+
+class BergEntropy(Entropy):
+    def __init__(self, blur, reach, power):
+        super(BergEntropy, self).__init__()
+        assert power < 1, "The entropy exponent is not admissible (should be <1)."
+
+        self.blur = blur
+        self.reach = reach
+        self.power = power
+        self.__name__ = 'PowerEntropy'
+
+    def entropy(self, x):
+        return self.reach * (x - 1 - x.log())
+
+    def legendre_entropy(self, x):
+        return - self.reach * (1 - (x / self.reach)).log()
 
 
 class PowerEntropy(Entropy):
@@ -262,19 +296,6 @@ class PowerEntropy(Entropy):
         self.reach = reach
         self.power = power
         self.__name__ = 'PowerEntropy'
-
-    def entropy(self, x):
-        s = self.power / ( self.power - 1 )
-        if s == 0:
-            return self.reach * (x - 1 - x.log())
-        else:
-            return (self.reach / (s * (s - 1))) * (x**s - s*(x-1) - 1)
-
-    def legendre_entropy(self, x):
-        if self.power == 0:
-            return - self.reach * (1 - (x / self.reach)).log()
-        else:
-            return self.reach * (1 - 1 / self.power) * ((1 + x / (self.reach * (self.power - 1))) ** self.power - 1)
 
     def grad_legendre(self, x):
         return (1 - (x / (self.reach * (1-self.power)))) ** (self.power - 1)
