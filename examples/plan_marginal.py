@@ -76,5 +76,5 @@ for entropy in list_entropy:
     ax[i, j].set_title(f'{entropy.__name__}', fontsize=30)
     k += 1
 plt.tight_layout()
-plt.savefig('comparison_entropy.png')
+plt.savefig('output/comparison_entropy.png')
 plt.show()

@@ -252,41 +252,6 @@ class TotalVariation(Entropy):
         return cost
 
 
-class OtherPowerEntropy(Entropy):
-    def __init__(self, blur, reach, power):
-        super(OtherPowerEntropy, self).__init__()
-        assert power < 1, "The entropy exponent is not admissible (should be <1)."
-
-        self.blur = blur
-        self.reach = reach
-        self.power = power
-        self.__name__ = 'PowerEntropy'
-
-    def entropy(self, x):
-        s = self.power / ( self.power - 1 )
-        return (self.reach / (s * (s - 1))) * (x**s - s*(x-1) - 1)
-
-    def legendre_entropy(self, x):
-        return self.reach * (1 - 1 / self.power) * ((1 + x / (self.reach * (self.power - 1))) ** self.power - 1)
-
-
-class BergEntropy(Entropy):
-    def __init__(self, blur, reach, power):
-        super(BergEntropy, self).__init__()
-        assert power < 1, "The entropy exponent is not admissible (should be <1)."
-
-        self.blur = blur
-        self.reach = reach
-        self.power = power
-        self.__name__ = 'PowerEntropy'
-
-    def entropy(self, x):
-        return self.reach * (x - 1 - x.log())
-
-    def legendre_entropy(self, x):
-        return - self.reach * (1 - (x / self.reach)).log()
-
-
 class PowerEntropy(Entropy):
     def __init__(self, blur, reach, power):
         super(PowerEntropy, self).__init__()
@@ -296,6 +261,19 @@ class PowerEntropy(Entropy):
         self.reach = reach
         self.power = power
         self.__name__ = 'PowerEntropy'
+
+    def entropy(self, x):
+        if self.power == 0:
+            return self.reach * (x - 1 - x.log())
+        else:
+            s = self.power / (self.power - 1)
+            return (self.reach / (s * (s - 1))) * (x ** s - s * (x - 1) - 1)
+            
+    def legendre_entropy(self, x):
+        if self.power == 0:
+            return - self.reach * (1 - (x / self.reach)).log()
+        else:
+            return self.reach * (1 - 1 / self.power) * ((1 + x / (self.reach * (self.power - 1))) ** self.power - 1)
 
     def grad_legendre(self, x):
         return (1 - (x / (self.reach * (1-self.power)))) ** (self.power - 1)
