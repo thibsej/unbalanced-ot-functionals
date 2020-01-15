@@ -155,7 +155,8 @@ class Range(Entropy):
 
     def aprox(self, x):
         r0, r1 = torch.tensor([self.reach_low], dtype=x.dtype), torch.tensor([self.reach_up], dtype=x.dtype)
-        return torch.min(torch.max(torch.tensor([0.0], dtype=x.dtype), x - self.blur * r1.log()), x - self.blur * r0.log())
+        return torch.min(torch.max(torch.tensor([0.0], dtype=x.dtype), x - self.blur * r1.log()),
+                         x - self.blur * r0.log())
 
     def init_potential(self, a, x, b, y, p):
         f, g = torch.zeros_like(a), torch.zeros_like(b)
@@ -233,11 +234,6 @@ class TotalVariation(Entropy):
         C = dist_matrix(x, y, p)
         expC = a[:,:,None] * b[:,None,:] * (1 - ((f[:,:,None] + g[:,None,:] - C) / self.blur).exp())
         cost = cost + torch.sum(self.blur * expC, dim=(1,2))
-        print(type(f))
-        print(f"Each output potential is equal to {f} // {g}")
-        print(f"Each output potential is equal to {output_pot(f)} // {output_pot(g)}")
-        print(
-            f"Each term of the cost has values {scal(a, output_pot(f))} // {scal(b, output_pot(g))} // {torch.sum(self.blur * expC, dim=(1,2))}")
         return cost
 
     def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
@@ -268,7 +264,7 @@ class PowerEntropy(Entropy):
         else:
             s = self.power / (self.power - 1)
             return (self.reach / (s * (s - 1))) * (x ** s - s * (x - 1) - 1)
-            
+
     def legendre_entropy(self, x):
         if self.power == 0:
             return - self.reach * (1 - (x / self.reach)).log()

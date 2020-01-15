@@ -40,20 +40,24 @@ def test_consistency_regularized_sym_asym(entropy, reach, p, m):
 
 
 # TODO: Hausdorff negative for Range
-# TODO: Sinkhorn negative for TV
 # TODO: Sinkhorn negative for Range
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])
-@pytest.mark.parametrize('entropy', [Balanced(1e0), KullbackLeibler(1e0, 1e0), TotalVariation(1e0, 1e0),
-                                     Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
-@pytest.mark.parametrize('div', [hausdorff_divergence, sinkhorn_divergence])
+@pytest.mark.parametrize('entropy', [Range(1e0, 0.3, 2)])
+# @pytest.mark.parametrize('entropy', [Balanced(1e0), KullbackLeibler(1e0, 1e0), TotalVariation(1e0, 1e0),
+#                                      Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
+@pytest.mark.parametrize('div', [sinkhorn_divergence, hausdorff_divergence])
 def test_divergence_positivity(div, entropy, reach, p, m, n):
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
     cost = div(m * a, x, n * b, y, p, entropy, solver=solver)
     assert torch.ge(cost, 0.0).all()
+
+
+# TODO : Build a test that computes symmetric and non-symmetric potentials, and checks that plugging both potentials would
+#  yield the same cost
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
