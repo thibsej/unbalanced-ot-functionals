@@ -7,8 +7,8 @@ from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, Pow
 from common.utils import generate_measure, convolution, scal
 
 torch.set_printoptions(precision=10)
-
-solver = BatchVanillaSinkhorn(nits=10000, tol=0, assume_convergence=True)
+torch.set_default_tensor_type(torch.DoubleTensor)
+solver = BatchVanillaSinkhorn(nits=5000, tol=1e-15, assume_convergence=True)
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
@@ -33,7 +33,7 @@ def test_consistency_regularized_sym_asym(entropy, reach, p, m):
     entropy.reach=reach
     a, x = generate_measure(1, 5, 2)
     f_xy, g_xy = solver.sinkhorn_asym(a, x, a, x, p, entropy)
-    f_xx = solver.sinkhorn_sym(a, x, p, entropy)
+    _, f_xx = solver.sinkhorn_sym(a, x, p, entropy)
     cost_asym = entropy.output_regularized(a, x, a, x, p, f_xy, g_xy)
     cost_sym = entropy.output_regularized(a, x, a, x, p, f_xx, f_xx)
     assert torch.allclose(cost_asym, cost_sym, atol=1e-6)
@@ -56,10 +56,6 @@ def test_divergence_positivity(div, entropy, reach, p, m, n):
     assert torch.ge(cost, 0.0).all()
 
 
-# TODO : Build a test that computes symmetric and non-symmetric potentials, and checks that plugging both potentials would
-#  yield the same cost
-
-
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])
@@ -70,7 +66,7 @@ def test_consistency_infinite_blur_regularized_ot_unbalanced(entropy, reach, p, 
     torch.set_default_dtype(torch.float64)
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
-    phi = entropy.entropy()
+    phi = entropy.entropy
     f, g = convolution(a, x, b, y, p)
     control = scal(a, f) + m * phi(torch.Tensor([n])) + n * phi(torch.Tensor([m]))
     cost = regularized_ot(m * a, x, n * b, y, p, entropy, solver=solver)
