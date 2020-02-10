@@ -4,13 +4,14 @@ from .entropy import Entropy
 from .utils import scal, dist_matrix, convolution, softmin, sym_softmin
 
 
+# TODO: Add an exponential version of Sinkhorn algorithm
 class SinkhornSolver(object):
 
-    def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy):
+    def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy, f_i=None, g_j=None):
         """Computes the Sinkhorn algorithn for two different measures"""
         raise NotImplementedError
 
-    def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None):
+    def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None, f_i=None):
         """Computes the symmetric potential for a diven measure, and its extrapolation if required"""
         raise NotImplementedError
 
@@ -22,10 +23,11 @@ class BatchVanillaSinkhorn(SinkhornSolver):
         self.tol = tol
         self.assume_convergence = assume_convergence
 
-    def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy):
+    def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy, f_i=None, g_j=None):
         if type(self.nits) in [list, tuple]: nits = self.nits[0]
         torch.set_grad_enabled(not self.assume_convergence)
-        f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
+        if f_i is None or g_j is None:
+            f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
         softmin_x, softmin_y = softmin(a_i, x_i, b_j, y_j, p)
         aprox = entropy.aprox
         err = entropy.error_sink
@@ -51,10 +53,11 @@ class BatchVanillaSinkhorn(SinkhornSolver):
         return f_i, g_j
 
 
-    def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None):
+    def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None, f_i=None):
         if type(self.nits) in [list, tuple]: nits = self.nits[1]
         torch.set_grad_enabled(not self.assume_convergence)
-        f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
+        if f_i is None:
+            f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
         softmin_xx = sym_softmin(a_i, x_i, x_i, p)
         aprox = entropy.aprox
         err = entropy.error_sink
@@ -107,9 +110,10 @@ class BatchScalingSinkhorn(SinkhornSolver):
         softmin_y = lambda f_j, ep: - ep * ((f_j / ep + b_j_log)[:, None, :] - C / ep).logsumexp(dim=2)
         return softmin_x, softmin_y
 
-    def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy):
+    def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy, f_i=None, g_j=None):
         torch.set_grad_enabled(not self.assume_convergence)
-        f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
+        if f_i is None or g_j is None:
+            f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
         C = dist_matrix(x_i, y_j, p)
         softmin_x, softmin_y = self.cost_softmin(a_i, b_j, C)
         scales = self.epsilon_schedule(C.max(), entropy.blur, self.budget)
@@ -130,8 +134,9 @@ class BatchScalingSinkhorn(SinkhornSolver):
 
         return f_i, g_j
 
-    def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None):
-        f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
+    def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None, f_i=None):
+        if f_i is None:
+            f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
         C = dist_matrix(x_i, y_j, p)
         softmin_xx, _ = self.cost_softmin(a_i, a_i, C)
         scales = self.epsilon_schedule(C.max(), entropy.blur, self.budget)

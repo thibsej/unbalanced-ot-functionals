@@ -58,3 +58,10 @@ def generate_measure(n_batch, n_sample, n_dim):
     m = torch.distributions.uniform.Uniform(0.0, 1.0)
     x = m.sample(torch.Size([n_batch, n_sample, n_dim]))
     return a, x
+
+def generate_gaussian_measure(n_batch, n_sample, n_dim):
+    a = torch.ones(n_batch, n_sample)
+    a = a / a.sum(dim=1)[:, None]
+    m = torch.distributions.normal.Normal(0.0, 1.0)
+    x = m.sample(torch.Size([n_batch, n_sample, n_dim]))
+    return a, x

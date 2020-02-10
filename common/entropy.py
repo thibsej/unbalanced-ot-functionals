@@ -2,7 +2,7 @@ import torch
 from .torch_lambertw import log_lambertw
 from .utils import scal, dist_matrix, convolution
 
-
+# TODO: Add exponential version of the KL projections
 class Entropy(object):
     """
     Object that defines the required modules for entropy functions.
@@ -13,7 +13,7 @@ class Entropy(object):
         raise NotImplementedError
 
     def legendre_entropy(self):
-        """Pointwise Legendre transforme of entropy used in the dual of Csiszar-divergence."""
+        """Pointwise Legendre transform of entropy used in the dual of Csiszar-divergence."""
         raise NotImplementedError
 
     def grad_legendre(self):
@@ -23,6 +23,12 @@ class Entropy(object):
     def aprox(self):
         """
         Anisotropic Proximity operator. The function returned is $x mapsto -Aprox(-x)$.
+        """
+        raise NotImplementedError
+
+    def kl_prox(self):
+        """
+        Kullback Proximity operator of $phi^*$..
         """
         raise NotImplementedError
 
@@ -81,6 +87,10 @@ class KullbackLeibler(Entropy):
     def aprox(self, x):
         z = self.blur / self.reach
         return (1 / (1 + z)) * x
+
+    def kl_prox(self, x):
+        z = self.blur / self.reach
+        return x ** (1 / (1 + z))
 
     def init_potential(self, a, x, b, y, p):
         f = - self.reach * b.sum(dim=1).log()[:,None]
@@ -163,16 +173,12 @@ class Range(Entropy):
         return f, g
 
     def output_regularized(self, a, x, b, y, p, f, g):
-        phis = self.legendre_entropy()
+        phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
         cost = scal(a, output_pot(f)) + scal(b, output_pot(g))
         C = dist_matrix(x, y, p)
         expC = a[:,:,None] * b[:,None,:] * (1 - ((f[:,:,None] + g[:,None,:] - C) / self.blur).exp())
         cost = cost + torch.sum(self.blur * expC, dim=(1,2))
-        print(type(f))
-        print(f"Each output potential is equal to {f} // {g}")
-        print(f"Each output potential is equal to {output_pot(f)} // {output_pot(g)}")
-        print(f"Each term of the cost has values {scal(a, output_pot(f))} // {scal(b, output_pot(g))} // {torch.sum(self.blur * expC, dim=(1,2))}")
         return  cost
 
     def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
