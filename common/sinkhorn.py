@@ -98,9 +98,9 @@ class BatchScalingSinkhorn(SinkhornSolver):
 
     @staticmethod
     def epsilon_schedule(diameter, blur, budget):
-        eps_s = [diameter] \
-                + [np.exp(e) for e in np.linspace(np.log(diameter), np.log(blur), budget)] \
-                + [blur]
+        eps_s = [torch.tensor([diameter])] + \
+                [torch.tensor([np.exp(e)]) for e in np.linspace(np.log(diameter), np.log(blur), budget)] \
+                + [torch.tensor([blur])]
         return eps_s
 
     @staticmethod
@@ -116,7 +116,7 @@ class BatchScalingSinkhorn(SinkhornSolver):
             f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
         C = dist_matrix(x_i, y_j, p)
         softmin_x, softmin_y = self.cost_softmin(a_i, b_j, C)
-        scales = self.epsilon_schedule(C.max(), entropy.blur, self.budget)
+        scales = self.epsilon_schedule(C.max().cpu().item(), entropy.blur, self.budget)
         aprox = entropy.aprox
         for scale in scales:
             g_j = - aprox(- softmin_x(f_i, scale))
