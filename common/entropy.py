@@ -71,9 +71,9 @@ class KullbackLeibler(Entropy):
     def __init__(self, blur, reach):
         super(KullbackLeibler, self).__init__()
 
+        self.__name__ = 'KullbackLeibler'
         self.blur = blur
         self.reach = reach
-        self.__name__ = 'KullbackLeibler'
 
     def entropy(self, x):
         return self.reach * (x * x.log() - x + 1)
@@ -103,8 +103,8 @@ class Balanced(Entropy):
     def __init__(self, blur):
         super(Balanced, self).__init__()
 
-        self.blur = blur
         self.__name__ = 'Balanced'
+        self.blur = blur
 
     def entropy(self, x):
         if x == 1:
@@ -146,10 +146,10 @@ class Range(Entropy):
     def __init__(self, blur, reach_low, reach_up):
         super(Range, self).__init__()
 
+        self.__name__ = 'Range'
         self.blur = blur
         self.reach_low = reach_low
         self.reach_up = reach_up
-        self.__name__ = 'Range'
 
     def entropy(self, x):
         if (x >= self.reach_low) & (x <= self.reach_up):
@@ -197,9 +197,9 @@ class TotalVariation(Entropy):
     def __init__(self, blur, reach):
         super(TotalVariation, self).__init__()
 
+        self.__name__ = 'TotalVariation'
         self.blur = blur
         self.reach = reach
-        self.__name__ = 'TotalVariation'
 
     def entropy(self, x):
         return self.reach * (x - 1).abs()
@@ -259,10 +259,10 @@ class PowerEntropy(Entropy):
         super(PowerEntropy, self).__init__()
         assert power < 1, "The entropy exponent is not admissible (should be <1)."
 
+        self.__name__ = 'PowerEntropy'
         self.blur = blur
         self.reach = reach
         self.power = power
-        self.__name__ = 'PowerEntropy'
 
     def entropy(self, x):
         if self.power == 0:
