@@ -1,3 +1,5 @@
+import os
+
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,6 +7,10 @@ import matplotlib.pyplot as plt
 from common.utils import dist_matrix
 from common.sinkhorn import BatchVanillaSinkhorn
 from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
+
+path = os.getcwd() + "/output"
+if not os.path.isdir(path):
+    os.mkdir(path)
 
 def template_measure(nsample):
     x1 = np.linspace(0.0, 0.2, nsample)
@@ -38,7 +44,7 @@ def template_measure(nsample):
     return a, x, b, y
 
 # Init of measures and solvers
-a, x, b, y = template_measure(150)
+a, x, b, y = template_measure(250)
 A, X, B, Y = torch.from_numpy(a)[None, :], torch.from_numpy(x)[None, :, None], torch.from_numpy(b)[None, :], \
              torch.from_numpy(y)[None, :, None]
 p, blur, reach = 2, 1e-3, 0.1
@@ -76,5 +82,5 @@ for entropy in list_entropy:
     ax[i, j].set_title(f'{entropy.__name__}', fontsize=30)
     k += 1
 plt.tight_layout()
-plt.savefig('output/comparison_entropy.png')
+plt.savefig(path + '/comparison_entropy.png')
 plt.show()
