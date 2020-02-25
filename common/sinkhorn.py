@@ -184,7 +184,6 @@ class BatchExpSinkhorn(SinkhornSolver):
         err = entropy.error_sink
         i = 0
         while i < self.nits - 1:
-            print(f"Iteration {i} = potential {u_i}")
             u_i_prev = u_i
             v_j = prox(softmin_x(u_i))
             u_i = prox(softmin_y(v_j))
@@ -214,6 +213,7 @@ class BatchExpSinkhorn(SinkhornSolver):
         err = entropy.error_sink
         i = 0
         while i < (self.nits - 1):
+            print(f"Iteration {i} = potential {u_i}")
             u_i_prev = u_i
             u_i = (u_i * prox(softmin_xx(u_i))).sqrt()
             if err(entropy.blur * u_i.log(), entropy.blur * u_i_prev.log()) < self.tol: break
@@ -233,7 +233,7 @@ class BatchExpSinkhorn(SinkhornSolver):
                 S2_x = exp_sym_softmin(a_i, x_i.detach(), y_j, p, entropy.blur)
                 u_x, u_xy = prox( S_x(u_i.detach()) ), prox( S2_x(u_i.detach()) )
             else:
-                u_x = prox( - S_x(u_i.detach()) )
+                u_x = prox( S_x(u_i.detach()) )
         if y_j is None:
             return None, entropy.blur * u_x.log()
         else:
