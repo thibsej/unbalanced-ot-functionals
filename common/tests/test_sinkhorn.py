@@ -1,11 +1,12 @@
 import pytest
 
 import torch
-from common.sinkhorn import BatchVanillaSinkhorn
+from common.sinkhorn import BatchVanillaSinkhorn, BatchExpSinkhorn
 from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
 from common.utils import generate_measure
 
 solver = BatchVanillaSinkhorn(nits=10000, tol=0, assume_convergence=True)
+torch.set_default_tensor_type(torch.DoubleTensor)
 
 # @pytest.mark.parametrize('p', [1, 1.5, 2])
 # @pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
@@ -80,3 +81,23 @@ def test_sinkhorn_consistency_sym_asym(entropy, atol, p, m, reach):
     _, f_s = solver.sinkhorn_sym(m * a, x, p=p, entropy=entropy)
     assert torch.allclose(err(f_a, f_s), torch.Tensor([0.0]), atol=atol)
     assert torch.allclose(err(g_a, f_s), torch.Tensor([0.0]), atol=atol)
+
+
+@pytest.mark.parametrize('p', [1, 1.5, 2])
+@pytest.mark.parametrize('reach', [0.5, 1., 2.])
+@pytest.mark.parametrize('m', [0.7, 1., 2.])
+@pytest.mark.parametrize('entropy,atol', [(Balanced(1e1), 1e-6), (KullbackLeibler(1e1, 1e0), 1e-6),
+                                          (TotalVariation(1e1, 1e0), 1e-4), (Range(1e1, 0.3, 2), 1e-6),
+                                          (PowerEntropy(1e0, 1e0, 0), 1e-6), (PowerEntropy(1e0, 1e0, -1), 1e-6)])
+def test_sinkhorn_consistency_exp_log_asym(entropy, atol, p, m, reach):
+    """Test if the exp sinkhorn is consistent with its log form"""
+    entropy.reach = reach
+    a, x = generate_measure(1, 5, 2)
+    b, y = generate_measure(1, 6, 2)
+    err = entropy.error_sink
+    solver1 = BatchVanillaSinkhorn(nits=10000, tol=1e-12, assume_convergence=True)
+    solver2 = BatchExpSinkhorn(nits=10000, tol=1e-12, assume_convergence=True)
+    f_a, g_a = solver1.sinkhorn_asym(m * a, x, m * b, y, p=p, entropy=entropy)
+    u_a, v_a = solver2.sinkhorn_asym(m * a, x, m * b, y, p=p, entropy=entropy)
+    assert torch.allclose(f_a, u_a, rtol=atol)
+    assert torch.allclose(g_a, v_a, rtol=atol)

@@ -29,6 +29,7 @@ class Entropy(object):
     def kl_prox(self):
         """
         Kullback Proximity operator of $phi^*$..
+        Takes as input <beta, exp(g-C)> and returns the update e^(f / blur)
         """
         raise NotImplementedError
 
@@ -90,11 +91,11 @@ class KullbackLeibler(Entropy):
 
     def kl_prox(self, x):
         z = self.blur / self.reach
-        return x ** (1 / (1 + z))
+        return x ** (-1 / (1 + z))
 
     def init_potential(self, a, x, b, y, p):
-        f = - self.reach * b.sum(dim=1).log()[:,None]
-        g = - self.reach * a.sum(dim=1).log()[:,None]
+        f = - self.reach * b.sum(dim=1).log().repeat(1, a.size()[1])
+        g = - self.reach * a.sum(dim=1).log().repeat(1, b.size()[1])
         return f, g
 
 
@@ -120,6 +121,9 @@ class Balanced(Entropy):
 
     def aprox(self, x):
         return x
+
+    def kl_prox(self, x):
+        return x ** (-1)
 
     def init_potential(self, a, x, b, y, p):
         f, g = convolution(a, x, b, y, p)
@@ -168,6 +172,10 @@ class Range(Entropy):
         return torch.min(torch.max(torch.tensor([0.0], dtype=x.dtype), x - self.blur * r1.log()),
                          x - self.blur * r0.log())
 
+    def kl_prox(self, x):
+        r0, r1 = torch.tensor([self.reach_low], dtype=x.dtype), torch.tensor([self.reach_up], dtype=x.dtype)
+        return torch.min(torch.max(torch.tensor([1.0], dtype=x.dtype), r0 * x ** (-1)), r1 * x ** (-1))
+
     def init_potential(self, a, x, b, y, p):
         f, g = torch.zeros_like(a), torch.zeros_like(b)
         return f, g
@@ -212,6 +220,10 @@ class TotalVariation(Entropy):
 
     def aprox(self, x):
         return torch.min(torch.max(-self.reach * torch.ones_like(x), x), self.reach * torch.ones_like(x))
+
+    def kl_prox(self, x):
+        return torch.min(torch.max(torch.tensor([-self.reach / self.blur]).exp() * torch.ones_like(x), x ** (-1)),
+                         torch.tensor([self.reach / self.blur]).exp() * torch.ones_like(x))
 
     def init_potential(self, a, x, b, y, p):
         aprox = self.aprox
@@ -284,6 +296,11 @@ class PowerEntropy(Entropy):
         delta = -(x / (self.blur * (1-self.power))) + (self.reach / self.blur) + \
                 torch.tensor([self.reach / self.blur], dtype=x.dtype).log()
         return (1 - self.power) * (self.reach - self.blur * log_lambertw(delta))
+
+    def kl_prox(self, x):
+        z = torch.tensor([self.reach / self.blur])
+        delta = z + z.log() - x.log() / (1 - self.power)
+        return ( (1 - self.power) * (log_lambertw(delta) - z) ).exp()
 
     def init_potential(self, a, x, b, y, p):
         f = self.reach * (1 - self.power) * (b.sum(dim=1) ** (1 / (self.power - 1)) - 1)[:,None]

@@ -44,6 +44,29 @@ def sym_softmin(a_i, x_i, y_j, p):
     return softmin_x
 
 
+def exp_softmin(a_i, x_i, b_j, y_j, p, blur):
+    """
+    Outputs the fixed point mapping (S_x, S_y) of Sinkhorn iterations, i.e.
+    mappings such that at convergence, f = S_y(g) and g = S_x(f).
+    Exponential form which is not stabilized.
+    """
+    K_e = ( - dist_matrix(x_i, y_j, p) / blur).exp()
+    softmin_x = lambda f_i: torch.einsum('ijk,ij->ik', K_e, f_i * a_i)
+    softmin_y = lambda f_j: torch.einsum('ijk,ik->ij', K_e, f_j * b_j)
+    return softmin_x, softmin_y
+
+
+def exp_sym_softmin(a_i, x_i, y_j, p, blur):
+    """
+    Outputs the fixed point mapping (S_x, S_y) of Sinkhorn iterations, i.e.
+    mappings such that at convergence, f = S_y(g) and g = S_x(f).
+    Exponential form which is not stabilized.
+    """
+    K_e = ( - dist_matrix(x_i, y_j, p) / blur).exp()
+    softmin_x = lambda f_i: torch.einsum('ijk,ij->ik', K_e, f_i * a_i)
+    return softmin_x
+
+
 def generate_measure(n_batch, n_sample, n_dim):
     """
     Generate a batch of probability measures in R^d sampled over the unit square

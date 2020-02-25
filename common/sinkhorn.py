@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from .entropy import Entropy
-from .utils import scal, dist_matrix, convolution, softmin, sym_softmin
+from .utils import dist_matrix, softmin, sym_softmin, exp_softmin, exp_sym_softmin
 
 
 # TODO: Add an exponential version of Sinkhorn algorithm
@@ -164,3 +164,77 @@ class BatchScalingSinkhorn(SinkhornSolver):
             return None, f_x
         else:
             return f_xy, f_x
+
+
+class BatchExpSinkhorn(SinkhornSolver):
+
+    def __init__(self, nits, tol, assume_convergence):
+        self.nits = nits
+        self.tol = tol
+        self.assume_convergence = assume_convergence
+
+    def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy, f_i=None, g_j=None):
+        if type(self.nits) in [list, tuple]: nits = self.nits[0]
+        torch.set_grad_enabled(not self.assume_convergence)
+        if f_i is None or g_j is None:
+            f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
+            u_i, v_j = (f_i / entropy.blur).exp(), (g_j / entropy.blur).exp()
+        softmin_x, softmin_y = exp_softmin(a_i, x_i, b_j, y_j, p, entropy.blur)
+        prox = entropy.kl_prox
+        err = entropy.error_sink
+        i = 0
+        while i < self.nits - 1:
+            print(f"Iteration {i} = potential {u_i}")
+            u_i_prev = u_i
+            v_j = prox(softmin_x(u_i))
+            u_i = prox(softmin_y(v_j))
+            if err(entropy.blur * u_i.log(), entropy.blur * u_i_prev.log()) < self.tol: break
+            i += 1
+
+        torch.set_grad_enabled(True)
+        if not self.assume_convergence:
+            v_j = - prox(- softmin_x(u_i))
+            u_i = - prox(- softmin_y(v_j))
+        else:
+            softmin_x, _ = exp_softmin(a_i, x_i.detach(), b_j, y_j, p, entropy.blur)
+            _, softmin_y = exp_softmin(a_i, x_i, b_j, y_j.detach(), p, entropy.blur)
+            v_j = prox(softmin_x(u_i.detach()))
+            u_i = prox(softmin_y(v_j.detach()))
+
+        return entropy.blur * u_i.log(), entropy.blur * v_j.log()
+
+    def sinkhorn_sym(self, a_i, x_i, p, entropy, y_j=None, f_i=None):
+        if type(self.nits) in [list, tuple]: nits = self.nits[1]
+        torch.set_grad_enabled(not self.assume_convergence)
+        if f_i is None:
+            f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
+            u_i = (f_i / entropy.blur).exp()
+        softmin_xx = exp_sym_softmin(a_i, x_i, x_i, p, entropy.blur)
+        prox = entropy.kl_prox
+        err = entropy.error_sink
+        i = 0
+        while i < (self.nits - 1):
+            u_i_prev = u_i
+            u_i = (u_i * prox(softmin_xx(u_i))).sqrt()
+            if err(entropy.blur * u_i.log(), entropy.blur * u_i_prev.log()) < self.tol: break
+            i += 1
+
+        torch.set_grad_enabled(True)
+        if not self.assume_convergence:
+            S_x = exp_sym_softmin(a_i, x_i.detach(), x_i, p, entropy.blur)
+            if y_j is not None:
+                S2_x = exp_sym_softmin(a_i, x_i, y_j, p, entropy.blur)
+                u_x, u_xy = prox( S_x(u_i) ), prox( S2_x(u_i) )
+            else:
+                u_x = prox( S_x(u_i) )
+        else:
+            S_x = exp_sym_softmin(a_i, x_i.detach(), x_i, p, entropy.blur)
+            if y_j is not None:
+                S2_x = exp_sym_softmin(a_i, x_i.detach(), y_j, p, entropy.blur)
+                u_x, u_xy = prox( S_x(u_i.detach()) ), prox( S2_x(u_i.detach()) )
+            else:
+                u_x = prox( - S_x(u_i.detach()) )
+        if y_j is None:
+            return None, entropy.blur * u_x.log()
+        else:
+            return entropy.blur * u_xy.log(), entropy.blur * u_x.log()
