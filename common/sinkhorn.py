@@ -18,8 +18,9 @@ class SinkhornSolver(object):
 
 class BatchVanillaSinkhorn(SinkhornSolver):
 
-    def __init__(self, nits, tol, assume_convergence):
+    def __init__(self, nits, nits_grad, tol, assume_convergence):
         self.nits = nits
+        self.nits_grad = nits_grad
         self.tol = tol
         self.assume_convergence = assume_convergence
 
@@ -33,7 +34,7 @@ class BatchVanillaSinkhorn(SinkhornSolver):
         err = entropy.error_sink
         blur = entropy.blur
         i = 0
-        while i < self.nits - 1:
+        while i < self.nits - self.nits_grad:
             f_i_prev = f_i
             g_j = - aprox( - softmin_x(f_i, blur))
             f_i = - aprox( - softmin_y(g_j, blur))
@@ -41,14 +42,19 @@ class BatchVanillaSinkhorn(SinkhornSolver):
             i += 1
 
         torch.set_grad_enabled(True)
-        if not self.assume_convergence:
+        # if not self.assume_convergence:
+        #     g_j = - aprox(- softmin_x(f_i, blur))
+        #     f_i = - aprox(- softmin_y(g_j, blur))
+        # else:
+        #     softmin_x, _ = softmin(a_i, x_i.detach(), b_j, y_j, p)
+        #     _, softmin_y = softmin(a_i, x_i, b_j, y_j.detach(), p)
+        #     g_j = - aprox(- softmin_x(f_i.detach(), blur))
+        #     f_i = - aprox(- softmin_y(g_j.detach(), blur))
+        if self.assume_convergence:
+            softmin_x, softmin_y = softmin(a_i, x_i, b_j, y_j, p)
+        for i in range(self.nits_grad):
             g_j = - aprox(- softmin_x(f_i, blur))
             f_i = - aprox(- softmin_y(g_j, blur))
-        else:
-            softmin_x, _ = softmin(a_i, x_i.detach(), b_j, y_j, p)
-            _, softmin_y = softmin(a_i, x_i, b_j, y_j.detach(), p)
-            g_j = - aprox(- softmin_x(f_i.detach(), blur))
-            f_i = - aprox(- softmin_y(g_j.detach(), blur))
 
         return f_i, g_j
 
@@ -213,7 +219,6 @@ class BatchExpSinkhorn(SinkhornSolver):
         err = entropy.error_sink
         i = 0
         while i < (self.nits - 1):
-            print(f"Iteration {i} = potential {u_i}")
             u_i_prev = u_i
             u_i = (u_i * prox(softmin_xx(u_i))).sqrt()
             if err(entropy.blur * u_i.log(), entropy.blur * u_i_prev.log()) < self.tol: break
