@@ -96,8 +96,8 @@ class KullbackLeibler(Entropy):
         return x ** (-1 / (1 + z))
 
     def init_potential(self, a, x, b, y, p):
-        f = - self.reach * b.sum(dim=1).log().repeat(1, a.size()[1])
-        g = - self.reach * a.sum(dim=1).log().repeat(1, b.size()[1])
+        f = - self.reach * b.sum(dim=1).log()[:, None]
+        g = - self.reach * a.sum(dim=1).log()[:, None]
         return f, g
 
 
