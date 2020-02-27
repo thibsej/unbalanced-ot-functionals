@@ -21,50 +21,33 @@ def convolution(a, x, b, y, p):
     return torch.bmm(C, b[:, :, None]).squeeze(), torch.bmm(C.transpose(1, 2), a[:, :, None]).squeeze()
 
 
-def softmin(a_i, x_i, b_j, y_j, p):
+def softmin(a_i, C, b_j=None):
     """
     Outputs the fixed point mapping (S_x, S_y) of Sinkhorn iterations, i.e.
     mappings such that at convergence, f = S_y(g) and g = S_x(f).
     """
-    C_e = dist_matrix(x_i, y_j, p)
-    a_i_log, b_j_log = a_i.log(), b_j.log()
-    softmin_x = lambda f_i, ep: - ep * ((f_i / ep + a_i_log)[:, None, :] - C_e.transpose(1, 2) / ep).logsumexp(dim=2)
-    softmin_y = lambda f_j, ep: - ep * ((f_j / ep + b_j_log)[:, None, :] - C_e / ep).logsumexp(dim=2)
-    return softmin_x, softmin_y
-
-
-def sym_softmin(a_i, x_i, y_j, p):
-    """
-    Outputs the fixed point mapping (S_x, S_y) of Sinkhorn iterations, i.e.
-    mappings such that at convergence, f = S_y(g) and g = S_x(f).
-    """
-    C_e = dist_matrix(x_i, y_j, p)
     a_i_log = a_i.log()
-    softmin_x = lambda f_j, ep: - ep * ((f_j / ep + a_i_log)[:, None, :] - C_e.transpose(1, 2) / ep).logsumexp(dim=2)
-    return softmin_x
+    softmin_x = lambda f_i, ep: - ep * ((f_i / ep + a_i_log)[:, None, :] - C.transpose(1, 2) / ep).logsumexp(dim=2)
+    if b_j is not None:
+        b_j_log = b_j.log()
+        softmin_y = lambda f_j, ep: - ep * ((f_j / ep + b_j_log)[:, None, :] - C / ep).logsumexp(dim=2)
+        return softmin_x, softmin_y
+    else:
+        return softmin_x, None
 
 
-def exp_softmin(a_i, x_i, b_j, y_j, p, blur):
+def exp_softmin(a_i, K, b_j=None):
     """
     Outputs the fixed point mapping (S_x, S_y) of Sinkhorn iterations, i.e.
     mappings such that at convergence, f = S_y(g) and g = S_x(f).
     Exponential form which is not stabilized.
     """
-    K_e = ( - dist_matrix(x_i, y_j, p) / blur).exp()
-    softmin_x = lambda f_i: torch.einsum('ijk,ij->ik', K_e, f_i * a_i)
-    softmin_y = lambda f_j: torch.einsum('ijk,ik->ij', K_e, f_j * b_j)
-    return softmin_x, softmin_y
-
-
-def exp_sym_softmin(a_i, x_i, y_j, p, blur):
-    """
-    Outputs the fixed point mapping (S_x, S_y) of Sinkhorn iterations, i.e.
-    mappings such that at convergence, f = S_y(g) and g = S_x(f).
-    Exponential form which is not stabilized.
-    """
-    K_e = ( - dist_matrix(x_i, y_j, p) / blur).exp()
-    softmin_x = lambda f_i: torch.einsum('ijk,ij->ik', K_e, f_i * a_i)
-    return softmin_x
+    softmin_x = lambda f_i: torch.einsum('ijk,ij->ik', K, f_i * a_i)
+    if b_j is not None:
+        softmin_y = lambda f_j: torch.einsum('ijk,ik->ij', K, f_j * b_j)
+        return softmin_x, softmin_y
+    else:
+        return softmin_x, None
 
 
 def generate_measure(n_batch, n_sample, n_dim):

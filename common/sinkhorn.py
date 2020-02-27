@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from .entropy import Entropy
-from .utils import dist_matrix, softmin, sym_softmin, exp_softmin, exp_sym_softmin
+from .utils import dist_matrix, softmin, exp_softmin
 
 
 class SinkhornSolver(object):
@@ -28,7 +28,8 @@ class BatchVanillaSinkhorn(SinkhornSolver):
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None or g_j is None:
             f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
-        softmin_x, softmin_y = softmin(a_i, x_i, b_j, y_j, p)
+        C = dist_matrix(x_i, y_j, p)
+        softmin_x, softmin_y = softmin(a_i, C, b_j)
         aprox = entropy.aprox
         err = entropy.error_sink
         blur = entropy.blur
@@ -40,7 +41,8 @@ class BatchVanillaSinkhorn(SinkhornSolver):
 
         torch.set_grad_enabled(True)
         if self.assume_convergence:
-            softmin_x, softmin_y = softmin(a_i, x_i, b_j, y_j, p)
+            C = dist_matrix(x_i, y_j, p)
+            softmin_x, softmin_y = softmin(a_i, C, b_j)
         for i in range(self.nits_grad):
             g_j = - aprox(- softmin_x(f_i, blur))
             f_i = - aprox(- softmin_y(g_j, blur))
@@ -51,7 +53,8 @@ class BatchVanillaSinkhorn(SinkhornSolver):
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None:
             f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
-        softmin_xx = sym_softmin(a_i, x_i, x_i, p)
+        C = dist_matrix(x_i, x_i, p)
+        softmin_xx, _ = softmin(a_i, C)
         aprox = entropy.aprox
         err = entropy.error_sink
         blur = entropy.blur
@@ -62,18 +65,20 @@ class BatchVanillaSinkhorn(SinkhornSolver):
 
         torch.set_grad_enabled(True)
         if self.assume_convergence:
-            softmin_xx, _ = softmin(a_i, x_i, a_i, x_i, p)
+            C = dist_matrix(x_i, x_i, p)
+            softmin_xx, _ = softmin(a_i, C)
         for i in range(self.nits_grad):
             f_i = 0.5 * ( f_i - aprox(- softmin_xx(f_i, blur)) )
 
         if y_j is not None:
-            softmin_xy = sym_softmin(a_i, x_i, y_j, p)
+            C = dist_matrix(x_i, y_j, p)
+            softmin_xy, _ = softmin(a_i, C)
             f_xy = - aprox(- softmin_xy(f_i, blur))
             return f_xy, f_i
         else:
             return None, f_i
 
-
+# TODO: DEbug this class with the new softmin method and add sanity check on K_eps
 class BatchScalingSinkhorn(SinkhornSolver):
 
     def __init__(self, budget, nits_grad, assume_convergence):
@@ -88,19 +93,12 @@ class BatchScalingSinkhorn(SinkhornSolver):
                 + [torch.tensor([blur])]
         return eps_s
 
-    @staticmethod
-    def cost_softmin(a_i, b_j, C):
-        a_i_log, b_j_log = a_i.log(), b_j.log()
-        softmin_x = lambda f_i, ep: - ep * ((f_i / ep + a_i_log)[:, None, :] - C.transpose(1, 2) / ep).logsumexp(dim=2)
-        softmin_y = lambda f_j, ep: - ep * ((f_j / ep + b_j_log)[:, None, :] - C / ep).logsumexp(dim=2)
-        return softmin_x, softmin_y
-
     def sinkhorn_asym(self, a_i, x_i, b_j, y_j, p, entropy, f_i=None, g_j=None):
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None or g_j is None:
             f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
         C = dist_matrix(x_i, y_j, p)
-        softmin_x, softmin_y = self.cost_softmin(a_i, b_j, C)
+        softmin_x, softmin_y = softmin(a_i, C, b_j)
         scales = self.epsilon_schedule(C.max().cpu().item(), entropy.blur, self.budget)
         aprox = entropy.aprox
         for scale in scales:
@@ -109,7 +107,8 @@ class BatchScalingSinkhorn(SinkhornSolver):
 
         torch.set_grad_enabled(True)
         if self.assume_convergence:
-            softmin_x, softmin_y = softmin(a_i, x_i, b_j, y_j, p)
+            C = dist_matrix(x_i, y_j, p)
+            softmin_x, softmin_y = softmin(a_i, C, b_j)
         for i in range(self.nits_grad):
             g_j = - aprox(- softmin_x(f_i, entropy.blur))
             f_i = - aprox(- softmin_y(g_j, entropy.blur))
@@ -119,7 +118,7 @@ class BatchScalingSinkhorn(SinkhornSolver):
         if f_i is None:
             f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
         C = dist_matrix(x_i, x_i, p)
-        softmin_xx, _ = self.cost_softmin(a_i, a_i, C)
+        softmin_xx, _ = softmin(a_i, C)
         scales = self.epsilon_schedule(C.max(), entropy.blur, self.budget)
         aprox = entropy.aprox
         torch.set_grad_enabled(not self.assume_convergence)
@@ -128,12 +127,14 @@ class BatchScalingSinkhorn(SinkhornSolver):
 
         torch.set_grad_enabled(True)
         if self.assume_convergence:
-            softmin_xx, _ = softmin(a_i, x_i, a_i, x_i, p)
+            C = dist_matrix(x_i, x_i, p)
+            softmin_xx, _ = softmin(a_i, C)
         for i in range(self.nits_grad):
             f_i = 0.5 * (f_i - aprox(- softmin_xx(f_i, entropy.blur)))
 
         if y_j is not None:
-            softmin_xy = sym_softmin(a_i, x_i, y_j, p)
+            C = dist_matrix(x_i, y_j, p)
+            softmin_xy, _ = softmin(a_i, C)
             f_xy = - aprox(- softmin_xy(f_i, entropy.blur))
             return f_xy, f_i
         else:
@@ -154,20 +155,24 @@ class BatchExpSinkhorn(SinkhornSolver):
         if f_i is None or g_j is None:
             f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
             u_i, v_j = (f_i / entropy.blur).exp(), (g_j / entropy.blur).exp()
-        softmin_x, softmin_y = exp_softmin(a_i, x_i, b_j, y_j, p, entropy.blur)
+
+        K = (- dist_matrix(x_i, y_j, p) / entropy.blur).exp()
+        if ~K.gt(torch.zeros_like(K)).all():  # exits if K has zeros to avoid underflow
+            return None, None
+
+        softmin_x, softmin_y = exp_softmin(a_i, K, b_j)
         prox = entropy.kl_prox
         err = entropy.error_sink
-        i = 0
-        while i < self.nits - 1:
+        for i in range(self.nits - self.nits_grad):
             u_i_prev = u_i
             v_j = prox(softmin_x(u_i))
             u_i = prox(softmin_y(v_j))
             if err(entropy.blur * u_i.log(), entropy.blur * u_i_prev.log()) < self.tol: break
-            i += 1
 
         torch.set_grad_enabled(True)
         if self.assume_convergence:
-            softmin_x, softmin_y = exp_softmin(a_i, x_i, b_j, y_j, p, entropy.blur)
+            K = (- dist_matrix(x_i, y_j, p) / entropy.blur).exp()
+            softmin_x, softmin_y = exp_softmin(a_i, K, b_j)
         for i in range(self.nits_grad):
             v_j = prox(softmin_x(u_i))
             u_i = prox(softmin_y(v_j))
@@ -179,7 +184,12 @@ class BatchExpSinkhorn(SinkhornSolver):
         if f_i is None:
             f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
             u_i = (f_i / entropy.blur).exp()
-        softmin_xx = exp_sym_softmin(a_i, x_i, x_i, p, entropy.blur)
+
+        K = (- dist_matrix(x_i, x_i, p) / entropy.blur).exp()
+        if ~K.gt(torch.zeros_like(K)).all():  # exits if K has zeros to avoid underflow
+            return None, None
+
+        softmin_xx, _ = exp_softmin(a_i, K)
         prox = entropy.kl_prox
         err = entropy.error_sink
         for i in range(self.nits - self.nits_grad):
@@ -189,13 +199,15 @@ class BatchExpSinkhorn(SinkhornSolver):
 
         torch.set_grad_enabled(True)
         if self.assume_convergence:
-            softmin_xx = exp_sym_softmin(a_i, x_i, x_i, p, entropy.blur)
+            K = (- dist_matrix(x_i, x_i, p) / entropy.blur).exp()
+            softmin_xx, _ = exp_softmin(a_i, K)
         for i in range(self.nits_grad):
             u_i = prox(softmin_xx(u_i))
 
         if y_j is not None:
-            softmin_xy = exp_sym_softmin(a_i, x_i, y_j, p, entropy.blur)
-            u_xy = - prox(- softmin_xy(u_i, entropy.blur))
+            Ky = (- dist_matrix(x_i, y_j, p) / entropy.blur).exp()
+            softmin_xy, _ = exp_softmin(a_i, Ky)
+            u_xy = prox(softmin_xy(u_i))
             return entropy.blur * u_xy.log(), entropy.blur * u_i.log()
         else:
             return None, entropy.blur * u_i.log()

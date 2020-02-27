@@ -8,16 +8,8 @@ from common.utils import generate_measure
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
-# @pytest.mark.parametrize('p', [1, 1.5, 2])
-# @pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), Balanced(1e0), TotalVariation(1e0, 1e0),
-#                                      Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
-# def test_sinkhorn_dimensional_consistency(entropy, p):
-#     """Preliminary test to ensure no bug is raised."""
-#     a, x = generate_measure(3, 5, 2)
-#     b, y = generate_measure(3, 6, 2)
-#     sinkhorn_asym(a, x, b, y, p=p, entropy=entropy)
-#     sinkhorn_sym(a, x, p=p, entropy=entropy)  # Symmetric Sinkhorn without extrapolation
-#     sinkhorn_sym(a, x, p=p, entropy=entropy, y_j=y)  # with extrapolation
+# TODO: Check correctness of exp-sinkhorn for small blur
+# TODO: Check correctness for at least two batches, not only one
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])

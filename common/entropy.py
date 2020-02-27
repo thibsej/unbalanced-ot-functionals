@@ -2,7 +2,9 @@ import torch
 from .torch_lambertw import log_lambertw
 from .utils import scal, dist_matrix, convolution
 
-# TODO: Add exponential version of the KL projections
+# TODO: Add  multiscale exponential version of the KL projections
+# TODO: Refactor all softmin method properly
+# TODO: add a sanity check of zeros if K=exp(-C / blur) to switch to log stabilized version if needed
 class Entropy(object):
     """
     Object that defines the required modules for entropy functions.
