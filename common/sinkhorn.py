@@ -3,6 +3,7 @@ import numpy as np
 from .entropy import Entropy
 from .utils import dist_matrix, softmin, exp_softmin
 
+#TODO: Make a robust sinkhorn that calls exp-sinkhorn if stable and log-sinkhorn otherwise
 
 class SinkhornSolver(object):
 
@@ -78,7 +79,7 @@ class BatchVanillaSinkhorn(SinkhornSolver):
         else:
             return None, f_i
 
-# TODO: DEbug this class with the new softmin method and add sanity check on K_eps
+
 class BatchScalingSinkhorn(SinkhornSolver):
 
     def __init__(self, budget, nits_grad, assume_convergence):
@@ -154,7 +155,7 @@ class BatchExpSinkhorn(SinkhornSolver):
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None or g_j is None:
             f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, p)
-            u_i, v_j = (f_i / entropy.blur).exp(), (g_j / entropy.blur).exp()
+        u_i, v_j = (f_i / entropy.blur).exp(), (g_j / entropy.blur).exp()
 
         K = (- dist_matrix(x_i, y_j, p) / entropy.blur).exp()
         if ~K.gt(torch.zeros_like(K)).all():  # exits if K has zeros to avoid underflow
@@ -183,7 +184,7 @@ class BatchExpSinkhorn(SinkhornSolver):
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None:
             f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, p)
-            u_i = (f_i / entropy.blur).exp()
+        u_i = (f_i / entropy.blur).exp()
 
         K = (- dist_matrix(x_i, x_i, p) / entropy.blur).exp()
         if ~K.gt(torch.zeros_like(K)).all():  # exits if K has zeros to avoid underflow

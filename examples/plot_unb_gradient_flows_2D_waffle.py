@@ -8,9 +8,9 @@ from matplotlib import pyplot as plt
 from functools import partial
 import torch
 
-from common.functional import regularized_ot, hausdorff_divergence, sinkhorn_divergence, energyDistance
+from common.functional import regularized_ot, hausdorff_divergence, sinkhorn_divergence
 from common.sinkhorn import BatchVanillaSinkhorn
-from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
+from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range
 
 # Build path to save plots
 path = os.getcwd() + "/output"
@@ -22,7 +22,7 @@ if not os.path.isdir(path):
 
 # Check GPU availability for computational speedup
 use_cuda = torch.cuda.is_available()
-dtype    = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
+dtype = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 torch.set_default_tensor_type(dtype)
 
 ###############################################
@@ -50,7 +50,7 @@ def display_samples(ax, x, a, color):
     ax.scatter( x_[:,0], x_[:,1], s=50*100*a_, c=color, edgecolors='none' )
 
 
-N, M = (100, 100) if not use_cuda else (500, 500)
+N, M = (100, 100) if not use_cuda else (2000, 2000)
  
 X_i = draw_samples("data/density_a.png", N, dtype)[None, :, :]
 Y_j = draw_samples("data/density_b.png", M, dtype)[None, :, :]
@@ -64,7 +64,7 @@ def gradient_flow(func, entropy, solver, p, lr_x=.05, lr_a=.005, Nsteps=100):
     """
     
     # Parameters for the gradient descent
-    display_its = [int(t * Nsteps) for t in [0, .05, .1, 0.2, 0.4, .99]]
+    display_its = [int(t * Nsteps) for t in [0, .05, .1, 0.2, 0.4, 1.]]
     loss = partial(func, p=p, entropy=entropy, solver=solver)
     fname = path + f"/unbalanced_flow_{func.__name__}_p{p}_{entropy.__dict__}_lrx{lr_x}_lra{lr_a}_" + \
                    f"steps{Nsteps}.png"
@@ -85,7 +85,7 @@ def gradient_flow(func, entropy, solver, p, lr_x=.05, lr_a=.005, Nsteps=100):
     t_0 = time.time()
     plt.figure(figsize=(12,8)) ; k = 1
     # plt.suptitle(f"L{p} cost, {entropy.__name__}({entropy.blur},{entropy.reach})", y=1.08, fontsize=16)
-    for i in range(Nsteps): # Euler scheme ===============
+    for i in range(Nsteps+1): # Euler scheme ===============
         # Compute cost and gradient
         cost = loss(a_i, x_i, b_j, y_j)
         [g, m] = torch.autograd.grad(cost, [x_i, a_i])
@@ -108,7 +108,7 @@ def gradient_flow(func, entropy, solver, p, lr_x=.05, lr_a=.005, Nsteps=100):
         # in-place modification of the tensor's values
         x_i.data -= lr_x * g
         a_i.data *= (- (2 * lr_a * m)).exp()
-        print(a_i.data)
+        print(f"At step {i} the total mass is {a_i.sum().item()}")
     plt.title("t = {:1.2f}, elapsed time: {:.2f}s/it".format(i/(Nsteps-1), (time.time() - t_0)/Nsteps ))
     plt.savefig(fname)
     plt.show()
@@ -116,53 +116,52 @@ def gradient_flow(func, entropy, solver, p, lr_x=.05, lr_a=.005, Nsteps=100):
 
 if __name__ == '__main__':
     setting = 0
+    solver = BatchVanillaSinkhorn(nits=5000, nits_grad=15, tol=1e-8, assume_convergence=True)
 
-    if setting == 0:
-        p = 2
-        entropy = KullbackLeibler(1e-2, 0.3)
-        solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
-        gradient_flow(sinkhorn_divergence, entropy, solver, p, lr_x=10., lr_a=0.2, Nsteps=200)
+    if setting == 0: # Compare KL for various mass steps
+        gradient_flow(sinkhorn_divergence, entropy = KullbackLeibler(1e-2, 0.3), solver=solver, p=2,
+                      lr_x=60.,lr_a=0., Nsteps=300)
+        gradient_flow(sinkhorn_divergence, entropy=KullbackLeibler(1e-2, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
+        gradient_flow(sinkhorn_divergence, entropy=KullbackLeibler(1e-2, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.5, Nsteps=300)
+        gradient_flow(sinkhorn_divergence, entropy=KullbackLeibler(1e-2, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=1., Nsteps=300)
 
-    if setting == 1:
-        p = 1
-        entropy = KullbackLeibler(1e-2, 0.3)
-        solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
-        gradient_flow(sinkhorn_divergence, entropy, solver, p, lr_x=10., lr_a=0.2, Nsteps=200)
+    if setting == 1: # Compute KL for a smaller blur to compare with previous higher regularization
+        gradient_flow(sinkhorn_divergence, entropy=KullbackLeibler(1e-3, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
 
-    if setting == 2:
-        p = 2
-        entropy = Balanced(1e-2)
-        solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
-        gradient_flow(sinkhorn_divergence, entropy, solver, p, lr_x=10., lr_a=0.2, Nsteps=200)
+    if setting == 2: # Compute Kl dynamic for an almost L1 metric
+        gradient_flow(sinkhorn_divergence, KullbackLeibler(1e-2, 0.3), solver=solver, p=1.1,
+                      lr_x=10., lr_a=0.3, Nsteps=300)
 
-    if setting == 3:
-        p = 2
-        entropy = TotalVariation(1e-2, 0.1)
-        solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
-        gradient_flow(sinkhorn_divergence, entropy, solver, p, lr_x=10., lr_a=0.2, Nsteps=200)
+    if setting == 3: # Compare Balanced OT with and without mass creation allowed
+        gradient_flow(sinkhorn_divergence, entropy=Balanced(1e-3), solver=solver, p=2,
+                      lr_x=60., lr_a=0., Nsteps=300)
+    gradient_flow(sinkhorn_divergence, entropy=Balanced(1e-3), solver=solver, p=2,
+                  lr_x=60., lr_a=0.3, Nsteps=300)
 
-    if setting == 4:
-        p = 2
-        entropy = Range(1e-2, 0.7, 1.3)
-        solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
-        gradient_flow(sinkhorn_divergence, entropy, solver, p, lr_x=10., lr_a=0.2, Nsteps=200)
+    if setting == 4: # Compute flow for TV with various blurring levels
+        gradient_flow(sinkhorn_divergence, entropy=TotalVariation(1e-2, 0.1), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
+        gradient_flow(sinkhorn_divergence, entropy=TotalVariation(1e-3, 0.1), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
 
-    if setting == 5:
-        p = 1
-        entropy = Range(1e-2, 0.7, 1.3)
-        solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
-        gradient_flow(sinkhorn_divergence, entropy, solver, p, lr_x=10., lr_a=0.2, Nsteps=200)
+    if setting == 5: # Compute flow for the Range divergence
+        gradient_flow(sinkhorn_divergence, entropy=Range(1e-2, 0.7, 1.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
+        gradient_flow(sinkhorn_divergence, entropy=Range(1e-3, 0.7, 1.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
 
-    if setting == 6:
-        p = 2
-        entropy = KullbackLeibler(1e-2, 0.3)
-        solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
-        gradient_flow(regularized_ot, entropy, solver, p, lr_x=10., lr_a=0.2, Nsteps=200)
+    if setting == 6: # Flow for the Regularized OT
+        gradient_flow(regularized_ot, entropy=KullbackLeibler(1e-3, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
+        gradient_flow(regularized_ot, entropy=KullbackLeibler(1e-2, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
 
-    if setting == 7:
-        p = 2
-        entropy = KullbackLeibler(1e-2, 0.3)
-        solver = BatchVanillaSinkhorn(nits=1000, tol=1e-5, assume_convergence=True)
-        gradient_flow(hausdorff_divergence, entropy, solver, p, lr_x=10., lr_a=0.08, Nsteps=200)
-
-
+    if setting == 7: # Flow for the Hausdorff_divergence
+        gradient_flow(hausdorff_divergence, entropy=KullbackLeibler(1e-3, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
+        gradient_flow(hausdorff_divergence, entropy=KullbackLeibler(1e-2, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
