@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 from random import choices
-from scipy import misc
+import imageio
 from matplotlib import pyplot as plt
 from functools import partial
 import torch
@@ -29,7 +29,7 @@ torch.set_default_tensor_type(dtype)
 # Display routine
 # ~~~~~~~~~~~~~~~~~
 def load_image(fname) :
-    img = misc.imread(fname, flatten=True)  # Grayscale
+    img = imageio.imread(fname, as_gray=True)  # Grayscale
     img = (img[::-1, :]) / 255.
     return 1 - img
 
@@ -143,8 +143,8 @@ if __name__ == '__main__':
     if setting == 3: # Compare Balanced OT with and without mass creation allowed
         gradient_flow(sinkhorn_divergence, entropy=Balanced(1e-3), solver=solver, p=2,
                       lr_x=60., lr_a=0., Nsteps=300)
-    gradient_flow(sinkhorn_divergence, entropy=Balanced(1e-3), solver=solver, p=2,
-                  lr_x=60., lr_a=0.3, Nsteps=300)
+        gradient_flow(sinkhorn_divergence, entropy=Balanced(1e-3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
 
     if setting == 4: # Compute flow for TV with various blurring levels
         gradient_flow(sinkhorn_divergence, entropy=TotalVariation(1e-2, 0.1), solver=solver, p=2,
@@ -159,10 +159,11 @@ if __name__ == '__main__':
                       lr_x=60., lr_a=0.3, Nsteps=300)
 
     if setting == 6: # Flow for the Regularized OT
-        gradient_flow(regularized_ot, entropy=KullbackLeibler(1e-3, 0.3), solver=solver, p=2,
-                      lr_x=60., lr_a=0.3, Nsteps=300)
         gradient_flow(regularized_ot, entropy=KullbackLeibler(1e-2, 0.3), solver=solver, p=2,
                       lr_x=60., lr_a=0.3, Nsteps=300)
+        gradient_flow(regularized_ot, entropy=KullbackLeibler(1e-3, 0.3), solver=solver, p=2,
+                      lr_x=60., lr_a=0.3, Nsteps=300)
+
 
     if setting == 7: # Flow for the Hausdorff_divergence
         gradient_flow(hausdorff_divergence, entropy=KullbackLeibler(1e-3, 0.3), solver=solver, p=2,
