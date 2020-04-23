@@ -2,10 +2,10 @@ import pytest
 
 import torch
 
-from common.functional import regularized_ot, hausdorff_divergence, sinkhorn_divergence, energyDistance
+from common.functional import regularized_ot, sinkhorn_divergence
 from common.sinkhorn import BatchVanillaSinkhorn, BatchExpSinkhorn
 from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
-from common.utils import generate_measure, convolution, scal, dist_matrix
+from common.utils import generate_measure, dist_matrix
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 torch.set_printoptions(precision=10)
@@ -17,8 +17,8 @@ torch.set_printoptions(precision=10)
 @pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), TotalVariation(1e0, 1e0), Range(1e0, 0.3, 2),
                                      PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
 @pytest.mark.parametrize('div', [regularized_ot])
-@pytest.mark.parametrize('solv', [BatchVanillaSinkhorn(nits=5000, nits_grad=1,  tol=1e-14, assume_convergence=True),
-                                  BatchExpSinkhorn(nits=5000, nits_grad=1,  tol=1e-14, assume_convergence=True)])
+@pytest.mark.parametrize('solv', [BatchVanillaSinkhorn(nits=5000, nits_grad=20,  tol=1e-14, assume_convergence=True),
+                                  BatchExpSinkhorn(nits=5000, nits_grad=20,  tol=1e-14, assume_convergence=True)])
 def test_gradient_unbalanced_weight_and_position_asym(solv, div, entropy, reach, p, m, n):
     entropy.reach = reach
     a, x = generate_measure(1, 5, 2)
@@ -60,12 +60,11 @@ def test_gradient_balanced_weight_and_position_asym(solv, div, entropy, p, m):
     assert torch.allclose(grad_th_a, grad_num_a, rtol=1e-5)
     assert torch.allclose(grad_th_x, grad_num_x, rtol=1e-5)
 
-# TODO Debug symmetric gradient for TV
+# TV and range are not tested because they do not have symmetric potentials
 @pytest.mark.parametrize('p', [2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m', [1., 0.7, 1.5])
-@pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), TotalVariation(1e0, 1e0), Range(1e0, 0.3, 2),
-                                     PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
+@pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
 @pytest.mark.parametrize('div', [regularized_ot])
 @pytest.mark.parametrize('solv', [BatchVanillaSinkhorn(nits=5000, nits_grad=200,  tol=1e-18, assume_convergence=True),
                                   BatchExpSinkhorn(nits=5000, nits_grad=200,  tol=1e-18, assume_convergence=True)])
@@ -110,3 +109,47 @@ def test_gradient_balanced_weight_and_position_sym(solv, div, entropy, p, m):
     grad_th_x = 2 * x * pi.sum(dim=2)[:, :, None] - 2 * torch.einsum('ijk, ikl->ijl', pi, x)
     assert torch.allclose(grad_th_a, grad_num_a, rtol=1e-5)
     assert torch.allclose(grad_th_x, grad_num_x, rtol=1e-5)
+
+
+
+@pytest.mark.parametrize('p', [2])
+@pytest.mark.parametrize('reach', [0.5, 1., 2.])
+@pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])
+@pytest.mark.parametrize('entropy', [KullbackLeibler(1e0, 1e0), TotalVariation(1e0, 1e0), Range(1e0, 0.3, 2),
+                                     PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
+@pytest.mark.parametrize('div', [regularized_ot])
+@pytest.mark.parametrize('solv', [BatchVanillaSinkhorn(nits=5000, nits_grad=20,  tol=1e-14, assume_convergence=True),
+                                  BatchExpSinkhorn(nits=5000, nits_grad=20,  tol=1e-14, assume_convergence=True)])
+def test_gradient_unbalanced_zero_grad_sinkhorn(solv, div, entropy, reach, p, m, n):
+    entropy.reach = reach
+    a, x = generate_measure(1, 5, 2)
+    a = m * a
+    b, y = torch.zeros_like(a), torch.zeros_like(x)
+    b.copy_(a)
+    y.copy_(x)
+    a.requires_grad = True
+    x.requires_grad = True
+    cost = sinkhorn_divergence(a, x, b, y, p, entropy, solver=solv)
+    [grad_num_x, grad_num_a] = torch.autograd.grad(cost, [x, a])
+    assert torch.allclose(torch.zeros_like(grad_num_a), grad_num_a, rtol=1e-5)
+    assert torch.allclose(torch.zeros_like(grad_num_x), grad_num_x, rtol=1e-5)
+
+
+@pytest.mark.parametrize('p', [2])
+@pytest.mark.parametrize('m', [1., 0.7, 1.5])
+@pytest.mark.parametrize('entropy', [Balanced(1e0)])
+@pytest.mark.parametrize('div', [regularized_ot])
+@pytest.mark.parametrize('solv', [BatchVanillaSinkhorn(nits=5000, nits_grad=10,  tol=1e-14, assume_convergence=True),
+                                  BatchExpSinkhorn(nits=5000, nits_grad=10,  tol=1e-14, assume_convergence=True)])
+def test_gradient_balanced_zero_grad_sinkhorn(solv, div, entropy, p, m):
+    a, x = generate_measure(1, 5, 2)
+    a = m * a
+    b, y = torch.zeros_like(a), torch.zeros_like(x)
+    b.copy_(a)
+    y.copy_(x)
+    a.requires_grad = True
+    x.requires_grad = True
+    cost = sinkhorn_divergence(a, x, b, y, p, entropy, solver=solv)
+    [grad_num_x, grad_num_a] = torch.autograd.grad(cost, [x, a])
+    assert torch.allclose(torch.zeros_like(grad_num_a), grad_num_a, rtol=1e-5)
+    assert torch.allclose(torch.zeros_like(grad_num_x), grad_num_x, rtol=1e-5)

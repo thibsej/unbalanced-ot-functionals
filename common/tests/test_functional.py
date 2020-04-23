@@ -39,8 +39,7 @@ def test_consistency_regularized_sym_asym(entropy, reach, p, m):
     assert torch.allclose(cost_asym, cost_sym, rtol=1e-6)
 
 
-# TODO: Hausdorff negative for Range
-# TODO: Sinkhorn negative for Range
+# TODO: Sinkhorn and Hausdorff negative for Range
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('reach', [0.5, 1., 2.])
 @pytest.mark.parametrize('m,n', [(1., 1.), (0.7, 2.), (0.5, 0.7), (1.5, 2.)])

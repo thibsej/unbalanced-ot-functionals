@@ -1,6 +1,6 @@
 import torch
 from .utils import dist_matrix, scal
-from .entropy import Entropy
+from .entropy import Entropy, TotalVariation, Range
 from .sinkhorn import dist_matrix, BatchVanillaSinkhorn
 
 
@@ -20,11 +20,17 @@ def hausdorff_divergence(a, x, b, y, p, entropy, solver=BatchVanillaSinkhorn(nit
 
 def sinkhorn_divergence(a, x, b, y, p, entropy, solver=BatchVanillaSinkhorn(nits=100, nits_grad=5, tol=1e-3,
                                                                             assume_convergence=True)):
-    f_xy, g_xy = solver.sinkhorn_asym(a, x, b, y, p=p, entropy=entropy)
-    _, f_x = solver.sinkhorn_sym(a, x, p=p, entropy=entropy)
-    _, g_y = solver.sinkhorn_sym(b, y, p=p, entropy=entropy)
-    cost = entropy.output_sinkhorn(a, x, b, y, p, f_xy, f_x, g_xy, g_y)
-    return cost
+    if isinstance(entropy, TotalVariation) | isinstance(entropy, Range):
+        f_xy, g_xy = solver.sinkhorn_asym(a, x, b, y, p=p, entropy=entropy)
+        f_x1, f_x2 = solver.sinkhorn_asym(a, x, a, x, p=p, entropy=entropy)
+        g_y1, g_y2 = solver.sinkhorn_asym(b, y, b, y, p=p, entropy=entropy)
+        return entropy.output_sinkhorn(a, x, b, y, p, f_xy, f_x1, f_x2, g_xy, g_y1, g_y2)
+    else:
+        f_xy, g_xy = solver.sinkhorn_asym(a, x, b, y, p=p, entropy=entropy)
+        _, f_x = solver.sinkhorn_sym(a, x, p=p, entropy=entropy)
+        _, g_y = solver.sinkhorn_sym(b, y, p=p, entropy=entropy)
+        return entropy.output_sinkhorn(a, x, b, y, p, f_xy, f_x, g_xy, g_y)
+
 
 
 def energyDistance(a, x, b, y, p=1):

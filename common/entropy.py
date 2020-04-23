@@ -189,15 +189,16 @@ class Range(Entropy):
         cost = cost + torch.sum(self.blur * expC, dim=(1,2))
         return  cost
 
-    def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+    def output_sinkhorn(self, a, x, b, y, p, f_xy, f_x1, f_x2, g_xy, g_y1, g_y2):
         phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
-        cost = scal(a, output_pot(f_xy) - output_pot(f_xx)) + scal(b, output_pot(g_xy) - output_pot(g_yy))
+        cost = scal(a, output_pot(f_xy) - 0.5 * output_pot(f_x1) - 0.5 * output_pot(f_x2)) \
+               + scal(b, output_pot(g_xy) - 0.5 * output_pot(g_y1) - 0.5 * output_pot(g_y2))
         Cxy, Cxx, Cyy = dist_matrix(x, y, p), dist_matrix(x, x, p), dist_matrix(y, y, p)
         expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
         cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1,2)) \
-               - 0.5 * torch.sum(self.blur * expC(a, a, f_xx, f_xx, Cxx), dim=(1,2)) \
-               - 0.5 * torch.sum(self.blur * expC(b, b, g_yy, g_yy, Cyy), dim=(1,2))
+               - 0.5 * torch.sum(self.blur * expC(a, a, f_x1, f_x2, Cxx), dim=(1,2)) \
+               - 0.5 * torch.sum(self.blur * expC(b, b, g_y1, g_y2, Cyy), dim=(1,2))
         return cost
 
 
@@ -241,9 +242,10 @@ class TotalVariation(Entropy):
         return f, g
 
     def error_sink(self, f, g):
-        err1 = (torch.max((f - g), dim=1)[0] - torch.min((f - g), dim=1)[0]).max()
+        # err1 = (torch.max((f - g), dim=1)[0] - torch.min((f - g), dim=1)[0]).max()
         err2 = (f-g).abs().max()
-        return torch.min(err1, err2)
+        # return torch.min(err1, err2)
+        return err2
 
     def output_regularized(self, a, x, b, y, p, f, g):
         phis = self.legendre_entropy
@@ -254,15 +256,17 @@ class TotalVariation(Entropy):
         cost = cost + torch.sum(self.blur * expC, dim=(1,2))
         return cost
 
-    def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+    def output_sinkhorn(self, a, x, b, y, p, f_xy, f_x1, f_x2, g_xy, g_y1, g_y2):
         phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
-        cost = scal(a, output_pot(f_xy) - output_pot(f_xx)) + scal(b, output_pot(g_xy) - output_pot(g_yy))
+        cost = scal(a, output_pot(f_xy) - 0.5 * output_pot(f_x1) - 0.5 * output_pot(f_x2)) \
+               + scal(b, output_pot(g_xy) - 0.5 * output_pot(g_y1) - 0.5 * output_pot(g_y2))
         Cxy, Cxx, Cyy = dist_matrix(x, y, p), dist_matrix(x, x, p), dist_matrix(y, y, p)
-        expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
-        cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1,2)) \
-               - 0.5 * torch.sum(self.blur * expC(a, a, f_xx, f_xx, Cxx), dim=(1,2)) \
-               - 0.5 * torch.sum(self.blur * expC(b, b, g_yy, g_yy, Cyy), dim=(1,2))
+        expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (
+                    1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
+        cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1, 2)) \
+               - 0.5 * torch.sum(self.blur * expC(a, a, f_x1, f_x2, Cxx), dim=(1, 2)) \
+               - 0.5 * torch.sum(self.blur * expC(b, b, g_y1, g_y2, Cyy), dim=(1, 2))
         return cost
 
 
