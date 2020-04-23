@@ -6,6 +6,12 @@ def scal(a, f):
     return torch.sum(a * f, dim=1)
 
 
+def check_cost_consistency(x, y, C):
+    mask = (x.size()[0] == C.size()[0]) & (x.size()[1] == C.size()[1]) & (y.size()[2] == C.size()[2])
+    if not mask:
+        raise Exception('Dimension of cost C inconsistent with input tensor dimension (x,y)')
+
+
 def dist_matrix(x_i, y_j, p):
     if p == 1:
         return (x_i[:, :, None, :] - y_j[:, None, :, :]).norm(p=2, dim=3)
@@ -16,8 +22,13 @@ def dist_matrix(x_i, y_j, p):
         return C_e ** (p)
 
 
-def convolution(a, x, b, y, p):
-    C = dist_matrix(x, y, p)
+def euclidean_cost(p):
+    cost = lambda x, y: dist_matrix(x, y, p)
+    return cost
+
+
+def convolution(a, x, b, y, cost):
+    C = cost(x, y)
     return torch.bmm(C, b[:, :, None]).squeeze(), torch.bmm(C.transpose(1, 2), a[:, :, None]).squeeze()
 
 
@@ -60,7 +71,7 @@ def generate_measure(n_batch, n_sample, n_dim):
     """
     m = torch.distributions.exponential.Exponential(1.0)
     a = m.sample(torch.Size([n_batch, n_sample]))
-    a = a / a.sum(dim=1)[:,None]
+    a = a / a.sum(dim=1)[:, None]
     m = torch.distributions.uniform.Uniform(0.0, 1.0)
     x = m.sample(torch.Size([n_batch, n_sample, n_dim]))
     return a, x

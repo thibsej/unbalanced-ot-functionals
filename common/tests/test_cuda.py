@@ -4,7 +4,7 @@ import torch
 from common.functional import regularized_ot, hausdorff_divergence, sinkhorn_divergence, energyDistance
 from common.sinkhorn import BatchVanillaSinkhorn
 from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
-from common.utils import generate_measure
+from common.utils import generate_measure, euclidean_cost
 
 torch.set_default_tensor_type(torch.cuda.FloatTensor)
 solver = BatchVanillaSinkhorn(nits=10, tol=0, assume_convergence=True)
@@ -16,4 +16,4 @@ def test_divergence_zero(entropy):
     a, x = a.float().cuda(), x.float().cuda()
     b, y = generate_measure(1, 6, 2)
     b, y = b.float().cuda(), y.float().cuda()
-    cost = sinkhorn_divergence(a, x, b, y, p=2, entropy=entropy, solver=solver)
+    sinkhorn_divergence(a, x, b, y, cost=euclidean_cost(2), entropy=entropy, solver=solver)

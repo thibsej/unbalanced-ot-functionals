@@ -48,19 +48,19 @@ class Entropy(object):
         """
         return (f - g).abs().max()
 
-    def output_regularized(self, a, x, b, y, p, f, g):
+    def output_regularized(self, a, x, b, y, cost, f, g):
         """Outputs the cost of the regularized OT"""
         phis, partial_phis = self.legendre_entropy, self.grad_legendre
         output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
         return scal(a, output_pot(f)) + scal(b, output_pot(g)) + self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]
 
-    def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+    def output_sinkhorn(self, a, x, b, y, cost, f_xy, f_xx, g_xy, g_yy):
         """Outputs the cost of the Sinkhorn divergence"""
         phis, partial_phis = self.legendre_entropy, self.grad_legendre
         output_pot = lambda x: - phis(-x) - 0.5 * self.blur * partial_phis(-x)
         return scal(a, output_pot(f_xy) - output_pot(f_xx)) + scal(b, output_pot(g_xy) - output_pot(g_yy))
 
-    def output_hausdorff(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+    def output_hausdorff(self, a, x, b, y, cost, f_xy, f_xx, g_xy, g_yy):
         """Outputs the cost of the Hausdorff divergence"""
         phis, partial_phis = self.legendre_entropy, self.grad_legendre
         output_pot = lambda x: phis(-x) + self.blur * partial_phis(-x)
@@ -93,7 +93,7 @@ class KullbackLeibler(Entropy):
         z = self.blur / self.reach
         return x ** (-1 / (1 + z))
 
-    def init_potential(self, a, x, b, y, p):
+    def init_potential(self, a, x, b, y, cost):
         f = - self.reach * b.sum(dim=1).log()[:, None]
         g = - self.reach * a.sum(dim=1).log()[:, None]
         return f, g
@@ -125,8 +125,8 @@ class Balanced(Entropy):
     def kl_prox(self, x):
         return x ** (-1)
 
-    def init_potential(self, a, x, b, y, p):
-        f, g = convolution(a, x, b, y, p)
+    def init_potential(self, a, x, b, y, cost):
+        f, g = convolution(a, x, b, y, cost)
         scal_prod = scal(b, g)
         f = f - 0.5 * scal_prod[:, None]
         g = g - 0.5 * scal_prod[:, None]
@@ -135,13 +135,13 @@ class Balanced(Entropy):
     def error_sink(self, f, g):
         return (torch.max((f - g), dim=1)[0] - torch.min((f - g), dim=1)[0]).max()
 
-    def output_regularized(self, a, x, b, y, p, f, g):
+    def output_regularized(self, a, x, b, y, cost, f, g):
         return scal(a, f) + scal(b, g)
 
-    def output_sinkhorn(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+    def output_sinkhorn(self, a, x, b, y, cost, f_xy, f_xx, g_xy, g_yy):
         return scal(a, f_xy - f_xx) + scal(b, g_xy - g_yy)
 
-    def output_hausdorff(self, a, x, b, y, p, f_xy, f_xx, g_xy, g_yy):
+    def output_hausdorff(self, a, x, b, y, cost, f_xy, f_xx, g_xy, g_yy):
         return scal(a, f_xy - f_xx) + scal(b, g_xy - g_yy)
 
 
@@ -176,30 +176,30 @@ class Range(Entropy):
         r0, r1 = torch.tensor([self.reach_low], dtype=x.dtype), torch.tensor([self.reach_up], dtype=x.dtype)
         return torch.min(torch.max(torch.tensor([1.0], dtype=x.dtype), r0 * x ** (-1)), r1 * x ** (-1))
 
-    def init_potential(self, a, x, b, y, p):
+    def init_potential(self, a, x, b, y, cost):
         f, g = torch.zeros_like(a), torch.zeros_like(b)
         return f, g
 
-    def output_regularized(self, a, x, b, y, p, f, g):
+    def output_regularized(self, a, x, b, y, cost, f, g):
         phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
-        cost = scal(a, output_pot(f)) + scal(b, output_pot(g))
-        C = dist_matrix(x, y, p)
+        func = scal(a, output_pot(f)) + scal(b, output_pot(g))
+        C = cost(x, y)
         expC = a[:,:,None] * b[:,None,:] * (1 - ((f[:,:,None] + g[:,None,:] - C) / self.blur).exp())
-        cost = cost + torch.sum(self.blur * expC, dim=(1,2))
-        return  cost
+        func = func + torch.sum(self.blur * expC, dim=(1,2))
+        return func
 
-    def output_sinkhorn(self, a, x, b, y, p, f_xy, f_x1, f_x2, g_xy, g_y1, g_y2):
+    def output_sinkhorn(self, a, x, b, y, cost, f_xy, f_x1, f_x2, g_xy, g_y1, g_y2):
         phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
-        cost = scal(a, output_pot(f_xy) - 0.5 * output_pot(f_x1) - 0.5 * output_pot(f_x2)) \
+        func = scal(a, output_pot(f_xy) - 0.5 * output_pot(f_x1) - 0.5 * output_pot(f_x2)) \
                + scal(b, output_pot(g_xy) - 0.5 * output_pot(g_y1) - 0.5 * output_pot(g_y2))
-        Cxy, Cxx, Cyy = dist_matrix(x, y, p), dist_matrix(x, x, p), dist_matrix(y, y, p)
+        Cxy, Cxx, Cyy = cost(x, y), cost(x, x), cost(y, y)
         expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
-        cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1,2)) \
+        func = func + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1,2)) \
                - 0.5 * torch.sum(self.blur * expC(a, a, f_x1, f_x2, Cxx), dim=(1,2)) \
                - 0.5 * torch.sum(self.blur * expC(b, b, g_y1, g_y2, Cyy), dim=(1,2))
-        return cost
+        return func
 
 
 class TotalVariation(Entropy):
@@ -226,13 +226,13 @@ class TotalVariation(Entropy):
         return torch.min(torch.max(torch.tensor([-self.reach / self.blur]).exp() * torch.ones_like(x), x ** (-1)),
                          torch.tensor([self.reach / self.blur]).exp() * torch.ones_like(x))
 
-    def init_potential(self, a, x, b, y, p):
+    def init_potential(self, a, x, b, y, cost):
         aprox = self.aprox
         mask_a, mask_b = torch.eq(a.sum(1), torch.ones(a.size(0), dtype=a.dtype)), \
                          torch.eq(b.sum(1), torch.ones(b.size(0), dtype=b.dtype))
         f, g = torch.ones_like(a), torch.ones_like(b)
         if mask_a.all() or mask_b.all():
-            f, g = convolution(a, x, b, y, p)
+            f, g = convolution(a, x, b, y, cost)
             scal_prod = scal(b, g)
             f = f - 0.5 * scal_prod[:, None]
             g = g - 0.5 * scal_prod[:, None]
@@ -247,27 +247,27 @@ class TotalVariation(Entropy):
         # return torch.min(err1, err2)
         return err2
 
-    def output_regularized(self, a, x, b, y, p, f, g):
+    def output_regularized(self, a, x, b, y, cost, f, g):
         phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
-        cost = scal(a, output_pot(f)) + scal(b, output_pot(g))
-        C = dist_matrix(x, y, p)
+        func = scal(a, output_pot(f)) + scal(b, output_pot(g))
+        C = cost(x, y)
         expC = a[:,:,None] * b[:,None,:] * (1 - ((f[:,:,None] + g[:,None,:] - C) / self.blur).exp())
-        cost = cost + torch.sum(self.blur * expC, dim=(1,2))
-        return cost
+        func = func + torch.sum(self.blur * expC, dim=(1,2))
+        return func
 
-    def output_sinkhorn(self, a, x, b, y, p, f_xy, f_x1, f_x2, g_xy, g_y1, g_y2):
+    def output_sinkhorn(self, a, x, b, y, cost, f_xy, f_x1, f_x2, g_xy, g_y1, g_y2):
         phis = self.legendre_entropy
         output_pot = lambda x: - phis(-x)
-        cost = scal(a, output_pot(f_xy) - 0.5 * output_pot(f_x1) - 0.5 * output_pot(f_x2)) \
+        func = scal(a, output_pot(f_xy) - 0.5 * output_pot(f_x1) - 0.5 * output_pot(f_x2)) \
                + scal(b, output_pot(g_xy) - 0.5 * output_pot(g_y1) - 0.5 * output_pot(g_y2))
-        Cxy, Cxx, Cyy = dist_matrix(x, y, p), dist_matrix(x, x, p), dist_matrix(y, y, p)
+        Cxy, Cxx, Cyy = cost(x, y), cost(x, x), cost(y, y)
         expC = lambda a, b, f, g, C: a[:, :, None] * b[:, None, :] * (
                     1 - ((f[:, :, None] + g[:, None, :] - C) / self.blur).exp())
-        cost = cost + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1, 2)) \
+        func = func + torch.sum(self.blur * expC(a, b, f_xy, g_xy, Cxy), dim=(1, 2)) \
                - 0.5 * torch.sum(self.blur * expC(a, a, f_x1, f_x2, Cxx), dim=(1, 2)) \
                - 0.5 * torch.sum(self.blur * expC(b, b, g_y1, g_y2, Cyy), dim=(1, 2))
-        return cost
+        return func
 
 
 class PowerEntropy(Entropy):
@@ -306,7 +306,7 @@ class PowerEntropy(Entropy):
         delta = z + z.log() - x.log() / (1 - self.power)
         return ( (1 - self.power) * (log_lambertw(delta) - z) ).exp()
 
-    def init_potential(self, a, x, b, y, p):
+    def init_potential(self, a, x, b, y, cost):
         f = self.reach * (1 - self.power) * (b.sum(dim=1) ** (1 / (self.power - 1)) - 1)[:,None]
         g = self.reach * (1 - self.power) * (a.sum(dim=1) ** (1 / (self.power - 1)) - 1)[:,None]
         return f, g

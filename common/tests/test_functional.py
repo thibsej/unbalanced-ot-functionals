@@ -4,7 +4,7 @@ import torch
 from common.functional import regularized_ot, hausdorff_divergence, sinkhorn_divergence, energyDistance
 from common.sinkhorn import BatchVanillaSinkhorn
 from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
-from common.utils import generate_measure, convolution, scal
+from common.utils import generate_measure, convolution, scal, euclidean_cost
 
 torch.set_printoptions(precision=10)
 torch.set_default_tensor_type(torch.DoubleTensor)
@@ -19,9 +19,10 @@ solver = BatchVanillaSinkhorn(nits=5000, nits_grad=5, tol=1e-15, assume_converge
 @pytest.mark.parametrize('div', [sinkhorn_divergence, hausdorff_divergence])
 def test_divergence_zero(div, entropy, reach, p, m):
     entropy.reach = reach
+    cost = euclidean_cost(p)
     a, x = generate_measure(1, 5, 2)
-    cost = div(m * a, x, m * a, x, p, entropy, solver=solver)
-    assert torch.allclose(cost, torch.Tensor([0.0]), rtol=1e-6)
+    func = div(m * a, x, m * a, x, cost, entropy, solver=solver)
+    assert torch.allclose(func, torch.Tensor([0.0]), rtol=1e-6)
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
@@ -31,12 +32,13 @@ def test_divergence_zero(div, entropy, reach, p, m):
                                      Range(1e0, 0.3, 2), PowerEntropy(1e0, 1e0, 0), PowerEntropy(1e0, 1e0, -1)])
 def test_consistency_regularized_sym_asym(entropy, reach, p, m):
     entropy.reach=reach
+    cost = euclidean_cost(p)
     a, x = generate_measure(1, 5, 2)
-    f_xy, g_xy = solver.sinkhorn_asym(a, x, a, x, p, entropy)
-    _, f_xx = solver.sinkhorn_sym(a, x, p, entropy)
-    cost_asym = entropy.output_regularized(a, x, a, x, p, f_xy, g_xy)
-    cost_sym = entropy.output_regularized(a, x, a, x, p, f_xx, f_xx)
-    assert torch.allclose(cost_asym, cost_sym, rtol=1e-6)
+    f_xy, g_xy = solver.sinkhorn_asym(a, x, a, x, cost, entropy)
+    _, f_xx = solver.sinkhorn_sym(a, x, cost, entropy)
+    func_asym = entropy.output_regularized(a, x, a, x, cost, f_xy, g_xy)
+    func_sym = entropy.output_regularized(a, x, a, x, cost, f_xx, f_xx)
+    assert torch.allclose(func_asym, func_sym, rtol=1e-6)
 
 
 # TODO: Sinkhorn and Hausdorff negative for Range
@@ -48,10 +50,11 @@ def test_consistency_regularized_sym_asym(entropy, reach, p, m):
 @pytest.mark.parametrize('div', [sinkhorn_divergence, hausdorff_divergence])
 def test_divergence_positivity(div, entropy, reach, p, m, n):
     entropy.reach = reach
+    cost = euclidean_cost(p)
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
-    cost = div(m * a, x, n * b, y, p, entropy, solver=solver)
-    assert torch.ge(cost, 0.0).all()
+    func = div(m * a, x, n * b, y, cost, entropy, solver=solver)
+    assert torch.ge(func, 0.0).all()
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
@@ -61,26 +64,28 @@ def test_divergence_positivity(div, entropy, reach, p, m, n):
                                      PowerEntropy(1e4, 1e0, 0), PowerEntropy(1e4, 1e0, -1)])
 def test_consistency_infinite_blur_regularized_ot_unbalanced(entropy, reach, p, m, n):
     entropy.reach = reach
+    cost = euclidean_cost(p)
     torch.set_default_dtype(torch.float64)
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
     phi = entropy.entropy
-    f, g = convolution(a, x, b, y, p)
+    f, g = convolution(a, x, b, y, cost)
     control = scal(a, f) + m * phi(torch.Tensor([n])) + n * phi(torch.Tensor([m]))
-    cost = regularized_ot(m * a, x, n * b, y, p, entropy, solver=solver)
-    assert torch.allclose(cost, control, rtol=1e-0)
+    func = regularized_ot(m * a, x, n * b, y, cost, entropy, solver=solver)
+    assert torch.allclose(func, control, rtol=1e-0)
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
 @pytest.mark.parametrize('entropy', [Balanced(1e5)])
 def test_consistency_infinite_blur_regularized_ot_balanced(entropy, p):
     """Control consistency in OT_eps when eps goes to infinity, especially for balanced OT"""
+    cost = euclidean_cost(p)
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
-    f, g = convolution(a, x, b, y, p)
+    f, g = convolution(a, x, b, y, cost)
     control = scal(a, f)
-    cost = regularized_ot(a, x, b, y, p, entropy, solver)
-    assert torch.allclose(cost, control, rtol=1e-0)
+    func = regularized_ot(a, x, b, y, cost, entropy, solver)
+    assert torch.allclose(func, control, rtol=1e-0)
 
 
 @pytest.mark.parametrize('p', [1, 1.5, 2])
@@ -89,8 +94,9 @@ def test_consistency_infinite_blur_regularized_ot_balanced(entropy, p):
                                      Range(1e6, 0.3, 2), PowerEntropy(1e6, 1e0, 0), PowerEntropy(1e6, 1e0, -1)])
 def test_consistency_infinite_blur_sinkhorn_div(entropy, reach, p):
     entropy.reach = reach
+    cost = euclidean_cost(p)
     a, x = generate_measure(1, 5, 2)
     b, y = generate_measure(1, 6, 2)
     control = energyDistance(a, x, b, y, p)
-    cost = sinkhorn_divergence(a, x, b, y, p, entropy, solver)
-    assert torch.allclose(cost, control, rtol=1e-0)
+    func = sinkhorn_divergence(a, x, b, y, cost, entropy, solver)
+    assert torch.allclose(func, control, rtol=1e-0)
