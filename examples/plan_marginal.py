@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from common.utils import dist_matrix
+from common.utils import euclidean_cost
 from common.sinkhorn import BatchVanillaSinkhorn
 from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
 
@@ -48,7 +48,8 @@ a, x, b, y = template_measure(250)
 A, X, B, Y = torch.from_numpy(a)[None, :], torch.from_numpy(x)[None, :, None], torch.from_numpy(b)[None, :], \
              torch.from_numpy(y)[None, :, None]
 p, blur, reach = 2, 1e-3, 0.1
-solver = BatchVanillaSinkhorn(nits=10000, tol=1e-5, assume_convergence=True)
+cost = euclidean_cost(p)
+solver = BatchVanillaSinkhorn(nits=10000, nits_grad=1, tol=1e-5, assume_convergence=True)
 list_entropy = [Balanced(blur), KullbackLeibler(blur, reach), TotalVariation(blur, reach), Range(blur, 0.7, 1.3),
                 PowerEntropy(blur, reach, 0.)]
 
@@ -58,7 +59,7 @@ red = (.95,.55,.55)
 fig, ax = plt.subplots(nrows=2, ncols=3, figsize=(40,12))
 ax[0, 0].fill_between(x, 0, a, color='b')
 ax[0, 0].fill_between(y, 0, b, color='r')
-ax[0, 0].set_title('Input Marginals', fontsize=30)
+ax[0, 0].set_title('Input Marginals', fontsize=50)
 ax[0, 0].set_yticklabels([])
 ax[0, 0].set_xticklabels([])
 
@@ -66,8 +67,8 @@ ax[0, 0].set_xticklabels([])
 k = 1
 for entropy in list_entropy:
     i, j = k//3, k%3
-    f, g = solver.sinkhorn_asym(A, X, B, Y, p, entropy)
-    C = dist_matrix(X, Y, p)
+    f, g = solver.sinkhorn_asym(A, X, B, Y, cost, entropy)
+    C = cost(X, Y)
     pi = ((f[:, :, None] + g[:, None, :] - C) / blur).exp() * A[:, :, None] * B[:, None, :]
 
     pi_1, pi_2 = pi.sum(dim=2), pi.sum(dim=1)
@@ -79,8 +80,8 @@ for entropy in list_entropy:
     ax[i, j].fill_between(y, 0, pi_2, color=blue)
     ax[i, j].set_yticklabels([])
     ax[i, j].set_xticklabels([])
-    ax[i, j].set_title(f'{entropy.__name__}', fontsize=30)
+    ax[i, j].set_title(f'{entropy.__name__}', fontsize=50)
     k += 1
 plt.tight_layout()
-plt.savefig(path + '/comparison_entropy.png')
+plt.savefig(path + '/comparison_entropy.eps', format='eps')
 plt.show()

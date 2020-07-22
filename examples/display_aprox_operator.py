@@ -12,9 +12,9 @@ for entropy, name in zip(L_entropy, L_name):
     x_, y_ = x.data.numpy(), (- aprox( -x )).squeeze().data.numpy()
     plt.plot(x_, y_, label=name)
 
-plt.xlabel('p')
-plt.ylabel('-aprox(-p)')
-plt.legend()
+plt.xlabel('p', fontsize=16)
+plt.ylabel('-aprox(-p)', fontsize=16)
+plt.legend(fontsize=13)
 plt.tight_layout()
-plt.savefig('output/fig_aprox.png', transparent=True)
+plt.savefig('output/fig_aprox.eps', format='eps', transparent=True)
 plt.show()
