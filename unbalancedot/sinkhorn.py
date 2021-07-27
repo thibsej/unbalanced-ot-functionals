@@ -28,6 +28,8 @@ class BatchVanillaSinkhorn(SinkhornSolver):
     ):
         if type(self.nits) in [list, tuple]:
             nits = self.nits[0]
+        else:
+            nits = self.nits
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None or g_j is None:
             f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, cost)
@@ -55,6 +57,8 @@ class BatchVanillaSinkhorn(SinkhornSolver):
     def sinkhorn_sym(self, a_i, x_i, cost, entropy, y_j=None, f_i=None):
         if type(self.nits) in [list, tuple]:
             nits = self.nits[1]
+        else:
+            nits = self.nits
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None:
             f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, cost)
@@ -167,6 +171,8 @@ class BatchExpSinkhorn(SinkhornSolver):
     ):
         if type(self.nits) in [list, tuple]:
             nits = self.nits[0]
+        else:
+            nits = self.nits
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None or g_j is None:
             f_i, g_j = entropy.init_potential(a_i, x_i, b_j, y_j, cost)
@@ -203,6 +209,8 @@ class BatchExpSinkhorn(SinkhornSolver):
     def sinkhorn_sym(self, a_i, x_i, cost, entropy, y_j=None, f_i=None):
         if type(self.nits) in [list, tuple]:
             nits = self.nits[1]
+        else:
+            nits = self.nits
         torch.set_grad_enabled(not self.assume_convergence)
         if f_i is None:
             f_i, _ = entropy.init_potential(a_i, x_i, a_i, x_i, cost)

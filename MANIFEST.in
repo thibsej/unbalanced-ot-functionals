@@ -19,6 +19,9 @@ exclude dictionary.txt
 exclude .mailmap
 recursive-exclude unbalancedot *.pyc
 
+exclude unbalancedot/tests/test_cuda.py
+exclude unbalancedot/tests/test_lambertw.py
+
 recursive-exclude doc *
 recursive-exclude examples/output *
 exclude requirements.txt

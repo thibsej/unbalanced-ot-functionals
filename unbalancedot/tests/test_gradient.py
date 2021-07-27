@@ -14,6 +14,7 @@ from unbalancedot.entropy import (
 from unbalancedot.utils import generate_measure, dist_matrix, euclidean_cost
 
 torch.set_default_tensor_type(torch.DoubleTensor)
+torch.manual_seed(0)
 torch.set_printoptions(precision=10)
 
 

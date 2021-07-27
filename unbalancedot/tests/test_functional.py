@@ -25,6 +25,7 @@ from unbalancedot.utils import (
 
 torch.set_printoptions(precision=10)
 torch.set_default_tensor_type(torch.DoubleTensor)
+torch.manual_seed(0)
 solver = BatchVanillaSinkhorn(
     nits=5000, nits_grad=5, tol=1e-15, assume_convergence=True
 )

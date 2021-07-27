@@ -17,6 +17,7 @@ from unbalancedot.entropy import (
 from unbalancedot.utils import generate_measure, euclidean_cost
 
 torch.set_default_tensor_type(torch.DoubleTensor)
+torch.manual_seed(0)
 
 
 @pytest.mark.parametrize(
