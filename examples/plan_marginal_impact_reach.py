@@ -44,7 +44,7 @@ def template_measure(nsample):
     return a, x, b, y
 
 # Init of measures and solvers
-a, x, b, y = template_measure(300)
+a, x, b, y = template_measure(500)
 A, X, B, Y = torch.from_numpy(a)[None, :], torch.from_numpy(x)[None, :, None], torch.from_numpy(b)[None, :], \
              torch.from_numpy(y)[None, :, None]
 blur = 1e-3
@@ -56,11 +56,12 @@ list_entropy = [KullbackLeibler(blur, reach[0]), TotalVariation(blur, reach[0])]
 # Init of plot
 blue = (.55,.55,.95)
 red = (.95,.55,.55)
-fig, ax = plt.subplots(nrows=2, ncols=4, figsize=(48,12))
+# fig, ax = plt.subplots(nrows=2, ncols=4, figsize=(48,12))
 
 # Plotting transport marginals for each entropy
 for i in range(len(list_entropy)):
     for j in range(len(reach)):
+        fig = plt.figure(figsize=(8, 4))
         entropy = list_entropy[i]
         entropy.reach = reach[j]
         f, g = solver.sinkhorn_asym(A, X, B, Y, cost, entropy)
@@ -70,14 +71,14 @@ for i in range(len(list_entropy)):
         pi_1, pi_2 = pi.sum(dim=2), pi.sum(dim=1)
         pi_1, pi_2 = pi_1[0, :].data.numpy(), pi_2[0, :].data.numpy()
 
-        ax[i, j].plot(x, a, color='b', linestyle='--')
-        ax[i, j].plot(y, b, color='r', linestyle='--')
-        ax[i, j].fill_between(x, 0, pi_1, color=red)
-        ax[i, j].fill_between(y, 0, pi_2, color=blue)
-        ax[i, j].set_yticklabels([])
-        ax[i, j].set_xticklabels([])
-        ax[i, j].set_title(f'reach={reach[j]:0.3f}', fontsize=55)
+        plt.plot(x, a, color='b', linestyle='--')
+        plt.plot(y, b, color='r', linestyle='--')
+        plt.fill_between(x, 0, pi_1, color=red)
+        plt.fill_between(y, 0, pi_2, color=blue)
+        # plt.set_yticklabels([])
+        # plt.set_xticklabels([])
+        # plt.set_title(f'reach={reach[j]:0.3f}', fontsize=55)
         # ax[i, j].set_title(f'{entropy.__name__}, reach={reach[j]:0.3f}', fontsize=30)
-plt.tight_layout()
-plt.savefig(path + '/comparison_entropy_impact_reach.eps', format='eps')
-plt.show()
+        plt.tight_layout()
+        plt.savefig(path + f'/comparison_{entropy.__name__}_reach{entropy.reach}.eps', format='eps')
+    # plt.show()
