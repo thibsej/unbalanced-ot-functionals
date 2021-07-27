@@ -4,13 +4,14 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from common.utils import euclidean_cost
-from common.sinkhorn import BatchVanillaSinkhorn
-from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
+from unbalancedot.utils import euclidean_cost
+from unbalancedot.sinkhorn import BatchVanillaSinkhorn
+from unbalancedot.entropy import KullbackLeibler, TotalVariation
 
 path = os.getcwd() + "/output"
 if not os.path.isdir(path):
     os.mkdir(path)
+
 
 def template_measure(nsample):
     x1 = np.linspace(0.0, 0.2, nsample)
@@ -33,7 +34,7 @@ def template_measure(nsample):
     b1 = b1 / np.sum(b1)
 
     y2 = np.linspace(0.5, 0.9, nsample)
-    b2 = np.sqrt( np.abs(1 - ((y2 - 0.7) / 0.2)**2) )
+    b2 = np.sqrt(np.abs(1 - ((y2 - 0.7) / 0.2) ** 2))
     b2[0], b2[-1] = 0.0, 0.0
     b2 = b2 / np.sum(b2)
 
@@ -43,20 +44,27 @@ def template_measure(nsample):
 
     return a, x, b, y
 
+
 # Init of measures and solvers
 a, x, b, y = template_measure(500)
-A, X, B, Y = torch.from_numpy(a)[None, :], torch.from_numpy(x)[None, :, None], torch.from_numpy(b)[None, :], \
-             torch.from_numpy(y)[None, :, None]
+A, X, B, Y = (
+    torch.from_numpy(a)[None, :],
+    torch.from_numpy(x)[None, :, None],
+    torch.from_numpy(b)[None, :],
+    torch.from_numpy(y)[None, :, None],
+)
 blur = 1e-3
-reach = np.array([10**x for x in np.linspace(-2, np.log10(0.5), 4)])
+reach = np.array([10 ** x for x in np.linspace(-2, np.log10(0.5), 4)])
 cost = euclidean_cost(2)
-solver = BatchVanillaSinkhorn(nits=10000, nits_grad=2, tol=1e-8, assume_convergence=True)
-list_entropy = [KullbackLeibler(blur, reach[0]), TotalVariation(blur, reach[0])]
+solver = BatchVanillaSinkhorn(
+    nits=10000, nits_grad=2, tol=1e-8, assume_convergence=True
+)
+list_entropy = [KullbackLeibler(blur, reach[0]),
+                TotalVariation(blur, reach[0])]
 
 # Init of plot
-blue = (.55,.55,.95)
-red = (.95,.55,.55)
-# fig, ax = plt.subplots(nrows=2, ncols=4, figsize=(48,12))
+blue = (0.55, 0.55, 0.95)
+red = (0.95, 0.55, 0.55)
 
 # Plotting transport marginals for each entropy
 for i in range(len(list_entropy)):
@@ -66,19 +74,21 @@ for i in range(len(list_entropy)):
         entropy.reach = reach[j]
         f, g = solver.sinkhorn_asym(A, X, B, Y, cost, entropy)
         C = cost(X, Y)
-        pi = ((f[:, :, None] + g[:, None, :] - C) / blur).exp() * A[:, :, None] * B[:, None, :]
+        pi = (
+            ((f[:, :, None] + g[:, None, :] - C) / blur).exp()
+            * A[:, :, None]
+            * B[:, None, :]
+        )
 
         pi_1, pi_2 = pi.sum(dim=2), pi.sum(dim=1)
         pi_1, pi_2 = pi_1[0, :].data.numpy(), pi_2[0, :].data.numpy()
 
-        plt.plot(x, a, color='b', linestyle='--')
-        plt.plot(y, b, color='r', linestyle='--')
+        plt.plot(x, a, color="b", linestyle="--")
+        plt.plot(y, b, color="r", linestyle="--")
         plt.fill_between(x, 0, pi_1, color=red)
         plt.fill_between(y, 0, pi_2, color=blue)
-        # plt.set_yticklabels([])
-        # plt.set_xticklabels([])
-        # plt.set_title(f'reach={reach[j]:0.3f}', fontsize=55)
-        # ax[i, j].set_title(f'{entropy.__name__}, reach={reach[j]:0.3f}', fontsize=30)
         plt.tight_layout()
-        plt.savefig(path + f'/comparison_{entropy.__name__}_reach{entropy.reach}.eps', format='eps')
-    # plt.show()
+        plt.savefig(
+            path + f"/comparison_{entropy.__name__}_reach{entropy.reach}.eps",
+            format="eps",
+        )

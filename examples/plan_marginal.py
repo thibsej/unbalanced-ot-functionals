@@ -4,13 +4,20 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from common.utils import euclidean_cost
-from common.sinkhorn import BatchVanillaSinkhorn
-from common.entropy import KullbackLeibler, Balanced, TotalVariation, Range, PowerEntropy
+from unbalancedot.utils import euclidean_cost
+from unbalancedot.sinkhorn import BatchVanillaSinkhorn
+from unbalancedot.entropy import (
+    KullbackLeibler,
+    Balanced,
+    TotalVariation,
+    Range,
+    PowerEntropy,
+)
 
 path = os.getcwd() + "/output"
 if not os.path.isdir(path):
     os.mkdir(path)
+
 
 def template_measure(nsample):
     x1 = np.linspace(0.0, 0.2, nsample)
@@ -33,7 +40,7 @@ def template_measure(nsample):
     b1 = b1 / np.sum(b1)
 
     y2 = np.linspace(0.5, 0.9, nsample)
-    b2 = np.sqrt( np.abs(1 - ((y2 - 0.7) / 0.2)**2) )
+    b2 = np.sqrt(np.abs(1 - ((y2 - 0.7) / 0.2) ** 2))
     b2[0], b2[-1] = 0.0, 0.0
     b2 = b2 / np.sum(b2)
 
@@ -43,69 +50,56 @@ def template_measure(nsample):
 
     return a, x, b, y
 
+
 # Init of measures and solvers
 a, x, b, y = template_measure(1000)
-A, X, B, Y = torch.from_numpy(a)[None, :], torch.from_numpy(x)[None, :, None], torch.from_numpy(b)[None, :], \
-             torch.from_numpy(y)[None, :, None]
+A, X, B, Y = (
+    torch.from_numpy(a)[None, :],
+    torch.from_numpy(x)[None, :, None],
+    torch.from_numpy(b)[None, :],
+    torch.from_numpy(y)[None, :, None],
+)
 p, blur, reach = 2, 1e-3, 0.1
 cost = euclidean_cost(p)
-solver = BatchVanillaSinkhorn(nits=10000, nits_grad=1, tol=1e-5, assume_convergence=True)
-list_entropy = [Balanced(blur), KullbackLeibler(blur, reach), TotalVariation(blur, reach), Range(blur, 0.7, 1.3),
-                PowerEntropy(blur, reach, 0.)]
+solver = BatchVanillaSinkhorn(
+    nits=10000, nits_grad=1, tol=1e-5, assume_convergence=True
+)
+list_entropy = [
+    Balanced(blur),
+    KullbackLeibler(blur, reach),
+    TotalVariation(blur, reach),
+    Range(blur, 0.7, 1.3),
+    PowerEntropy(blur, reach, 0.0),
+]
 
 # Init of plot
-blue = (.55,.55,.95)
-red = (.95,.55,.55)
-fig = plt.figure(figsize=(8,4))
-plt.fill_between(x, 0, a, color='b')
-plt.fill_between(y, 0, b, color='r')
-# plt.axis('off')
+blue = (0.55, 0.55, 0.95)
+red = (0.95, 0.55, 0.55)
+fig = plt.figure(figsize=(8, 4))
+plt.fill_between(x, 0, a, color="b")
+plt.fill_between(y, 0, b, color="r")
 plt.tight_layout()
-plt.savefig(path + f'/comparison_entropy_reference.eps', format='eps')
-# plt.set_title('Input Marginals', fontsize=50)
-# plt.set_yticklabels([])
-# plt.set_xticklabels([])
-
-# Plotting transport marginals for each entropy
-# k = 1
-# for entropy in list_entropy:
-#     i, j = k//3, k%3
-#     f, g = solver.sinkhorn_asym(A, X, B, Y, cost, entropy)
-#     C = cost(X, Y)
-#     pi = ((f[:, :, None] + g[:, None, :] - C) / blur).exp() * A[:, :, None] * B[:, None, :]
-#
-#     pi_1, pi_2 = pi.sum(dim=2), pi.sum(dim=1)
-#     pi_1, pi_2 = pi_1[0, :].data.numpy(), pi_2[0, :].data.numpy()
-#
-#     ax[i, j].plot(x, a, color='b', linestyle='--')
-#     ax[i, j].plot(y, b, color='r', linestyle='--')
-#     ax[i, j].fill_between(x, 0, pi_1, color=red)
-#     ax[i, j].fill_between(y, 0, pi_2, color=blue)
-#     ax[i, j].set_yticklabels([])
-#     ax[i, j].set_xticklabels([])
-#     ax[i, j].set_title(f'{entropy.__name__}', fontsize=50)
-#     k += 1
-# plt.tight_layout()
-# plt.savefig(path + '/comparison_entropy.eps', format='eps')
-# plt.show()
+plt.savefig(path + "/comparison_entropy_reference.eps", format="eps")
 
 
 # Plotting each entropy separately
 for entropy in list_entropy:
-    fig = plt.figure(figsize=(8,4))
+    fig = plt.figure(figsize=(8, 4))
     f, g = solver.sinkhorn_asym(A, X, B, Y, cost, entropy)
     C = cost(X, Y)
-    pi = ((f[:, :, None] + g[:, None, :] - C) / blur).exp() * A[:, :, None] * B[:, None, :]
+    pi = (
+        ((f[:, :, None] + g[:, None, :] - C) / blur).exp()
+        * A[:, :, None]
+        * B[:, None, :]
+    )
 
     pi_1, pi_2 = pi.sum(dim=2), pi.sum(dim=1)
     pi_1, pi_2 = pi_1[0, :].data.numpy(), pi_2[0, :].data.numpy()
 
-    plt.plot(x, a, color='b', linestyle='--')
-    plt.plot(y, b, color='r', linestyle='--')
+    plt.plot(x, a, color="b", linestyle="--")
+    plt.plot(y, b, color="r", linestyle="--")
     plt.fill_between(x, 0, pi_1, color=red)
     plt.fill_between(y, 0, pi_2, color=blue)
-    # plt.set_yticklabels([])
-    # plt.set_xticklabels([])
-    # ax.set_title(f'{entropy.__name__}', fontsize=50)
     plt.tight_layout()
-    plt.savefig(path + f'/comparison_entropy_{entropy.__name__}.eps', format='eps')
+    plt.savefig(path + f"/comparison_entropy_{entropy.__name__}.eps",
+                format="eps")
