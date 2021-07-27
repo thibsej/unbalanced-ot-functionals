@@ -13,7 +13,9 @@ setup(
     packages=['unbalancedot', 'unbalancedot.tests'],
     install_requires=[
               'numpy',
-              'torch'
+              'torch',
+            'scipy',
+            'pytest'
           ],
     license="MIT",
 )
