@@ -1,0 +1,25 @@
+include *.rst
+include LICENSE
+include unbalancedot/__init__.py
+include *.png
+include requirements.txt
+
+recursive-include examples *.py
+
+recursive-include unbalancedot *.py
+
+### Exclude
+
+exclude Makefile
+exclude .coveragerc
+exclude .circleci/*
+exclude *.yml
+
+exclude dictionary.txt
+exclude .mailmap
+recursive-exclude unbalancedot *.pyc
+
+recursive-exclude doc *
+recursive-exclude examples/output *
+exclude requirements.txt
+
