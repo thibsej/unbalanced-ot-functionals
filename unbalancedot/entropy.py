@@ -170,7 +170,7 @@ class Entropy(object):
         return (
             scal(a, output_pot(f))
             + scal(b, output_pot(g))
-            + self.blur * a.sum(1)[:, None] * b.sum(1)[:, None]
+            + self.blur * a.sum(1) * b.sum(1)
         )
 
     def output_sinkhorn(self, a, x, b, y, cost, f_xy, f_xx, g_xy, g_yy):
