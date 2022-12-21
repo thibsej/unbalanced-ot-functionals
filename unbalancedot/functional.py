@@ -81,3 +81,13 @@ def energyDistance(a, x, b, y, p=1):
     xx = torch.bmm(a[:, None, :], torch.bmm(Cxx, a[:, :, None]))
     yy = torch.bmm(b[:, None, :], torch.bmm(Cyy, b[:, :, None]))
     return xy - 0.5 * xx - 0.5 * yy
+
+
+def gaussianKernel(a, x, b, y, sig):
+    Cxy = (-dist_matrix(x, y, 2) / sig**2).exp()
+    Cxx = (-dist_matrix(x, x, 2) / sig**2).exp()
+    Cyy = (-dist_matrix(y, y, 2) / sig**2).exp()
+    xy = torch.bmm(a[:, None, :], torch.bmm(Cxy, b[:, :, None]))
+    xx = torch.bmm(a[:, None, :], torch.bmm(Cxx, a[:, :, None]))
+    yy = torch.bmm(b[:, None, :], torch.bmm(Cyy, b[:, :, None]))
+    return - xy + 0.5 * xx + 0.5 * yy
